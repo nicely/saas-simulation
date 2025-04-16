@@ -219,7 +219,7 @@ Import and use this component in your main App.vue or similar entry point.
               <td v-if="showRateDetails">
                 {{ getMonthlyGrowthRate(month.projectionIndex).toFixed(2) }}%
               </td>
-              <td :title="`Calculated as: Visitors × ${getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2)}% conversion rate`">
+              <td :title="getPlanDistributionTooltip(month.projectionIndex)">
                 {{ getSubscribersForMonth(month.projectionIndex) }}
               </td>
               <td v-if="showRateDetails">
@@ -243,7 +243,7 @@ Import and use this component in your main App.vue or similar entry point.
               <td><strong>Total</strong></td>
               <td title="Sum of all projected visitors across 12 months"><strong>{{ getTotalVisitors() }}</strong></td>
               <td v-if="showRateDetails"></td>
-              <td title="Sum of all new subscribers gained across 12 months"><strong>{{ getTotalSubscribersGained() }}</strong></td>
+              <td :title="getTotalPlanDistributionTooltip()"><strong>{{ getTotalSubscribersGained() }}</strong></td>
               <td v-if="showRateDetails"></td>
               <td title="Sum of all churned customers across 12 months"><strong>{{ getTotalChurnedCustomers() }}</strong></td>
               <td v-if="showRateDetails"></td>
@@ -602,6 +602,36 @@ function getRevenueDistribution(plan) {
   const planMRR = plan.price * plan.customers;
   return ((planMRR / totalMRR.value) * 100).toFixed(1);
 }
+
+// Function to generate tooltip showing plan distribution for new subscribers
+function getPlanDistributionTooltip(monthIndex) {
+  const newSubscribers = getSubscribersForMonth(monthIndex);
+  let tooltipText = `New subscribers: ${newSubscribers}\n\nPlan distribution:`;
+  
+  // Calculate the distribution of new subscribers based on existing plan distribution
+  breakdownPlans.value.forEach(plan => {
+    const distribution = parseFloat(getCustomerDistribution(plan));
+    const subscribersForPlan = Math.round((distribution / 100) * newSubscribers);
+    tooltipText += `\n${plan.name}: ${subscribersForPlan} (${distribution}%)`;
+  });
+  
+  return tooltipText;
+}
+
+// Function to generate tooltip for total subscribers gained row
+function getTotalPlanDistributionTooltip() {
+  const totalNewSubscribers = getTotalSubscribersGained();
+  let tooltipText = `Total subscribers gained: ${totalNewSubscribers}\n\nPlan distribution:`;
+  
+  // Calculate the distribution of total new subscribers based on existing plan distribution
+  breakdownPlans.value.forEach(plan => {
+    const distribution = parseFloat(getCustomerDistribution(plan));
+    const totalSubscribersForPlan = Math.round((distribution / 100) * totalNewSubscribers);
+    tooltipText += `\n${plan.name}: ${totalSubscribersForPlan} (${distribution}%)`;
+  });
+  
+  return tooltipText;
+}
 </script>
 
 <style scoped>
@@ -667,5 +697,10 @@ input {
 /* Added CSS for factor-input class */
 .factor-input {
   width: 80px;
+}
+
+/* Show question mark cursor on hover for elements with title attribute */
+[title] {
+  cursor: help;
 }
 </style> 
