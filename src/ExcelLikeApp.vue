@@ -22,11 +22,28 @@ Import and use this component in your main App.vue or similar entry point.
             <tr>
               <td>Preset Configuration</td>
               <td>
-                <select v-model="selectedPreset" @change="applyPreset">
-                  <option value="custom">Custom</option>
-                  <option value="vc-startup">VC-Backed Startup</option>
-                  <option value="levelsio">Levelsio Solo</option>
-                </select>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                  <select v-model="selectedPreset" @change="applyPreset" style="flex-grow: 1;">
+                    <option value="levelsio">Levelsio Solo</option>
+                    <option value="vc-startup">VC-Backed Startup</option>
+                    <optgroup v-if="userPresets.length > 0" label="My Presets">
+                      <option v-for="preset in userPresets" :key="preset.id" :value="preset.id">
+                        {{ preset.name }} {{ selectedPreset === preset.id ? '(Auto-Save)' : '' }}
+                      </option>
+                    </optgroup>
+                  </select>
+                  <button @click="showPresetMenu = !showPresetMenu" class="small-btn" title="Manage presets">⚙️</button>
+                </div>
+                <div v-if="showPresetMenu" class="preset-menu">
+                  <div class="preset-actions">
+                    <button @click="saveCurrentAsPreset" class="action-btn">Save Current as New Preset</button>
+                    <button v-if="isUserPreset" @click="updateCurrentPreset" class="action-btn" disabled title="Preset is automatically updated as you make changes">Update Selected Preset</button>
+                    <button v-if="isUserPreset" @click="deleteSelectedPreset" class="action-btn delete-btn">Delete Selected</button>
+                    <div v-if="isUserPreset" class="auto-save-info">
+                      <small>Changes are automatically saved to this preset</small>
+                    </div>
+                  </div>
+                </div>
               </td>
             </tr>
             <tr>
@@ -416,12 +433,47 @@ const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 // Storage key for app state
 const STORAGE_KEY = 'saas-projection-data';
 
+// Add preset management state
+const showPresetMenu = ref(false);
+const userPresets = ref([]);
+const USER_PRESETS_KEY = 'saas-projection-user-presets';
+
 // Add preset configurations
-const selectedPreset = ref('custom'); // Default to custom
+const selectedPreset = ref('levelsio'); // Default to levelsio
 
 // Preset configurations
 const presets = {
-  'custom': {}, // Empty means keep current values
+  'levelsio': {
+    mrrGoal: 50000,
+    initialVisitors: 5000,
+    averageVisitorGrowthRate: 30, // Exponential growth
+    visitorToInstallRate: 2.0,
+    installToSubRate: 25, // High conversion for solo business
+    visitorGrowthFactor: 1.2, // Even more exponential
+    churnRateFactor: 0.8, // Improving churn over time
+    visitorToInstallFactor: 1.1,
+    installToSubFactor: 1.1,
+    plans: [
+      {
+        name: 'Starter',
+        customers: 80,
+        price: 29,
+        churnRate: 5.0,
+      },
+      {
+        name: 'Solo',
+        customers: 40,
+        price: 79,
+        churnRate: 2.5,
+      },
+      {
+        name: 'Team',
+        customers: 10,
+        price: 199,
+        churnRate: 1.5,
+      }
+    ]
+  },
   'vc-startup': {
     mrrGoal: 100000,
     initialVisitors: 10000,
@@ -458,44 +510,148 @@ const presets = {
         churnRate: 1.0,
       }
     ]
-  },
-  'levelsio': {
-    mrrGoal: 50000,
-    initialVisitors: 5000,
-    averageVisitorGrowthRate: 30, // Exponential growth
-    visitorToInstallRate: 2.0,
-    installToSubRate: 25, // High conversion for solo business
-    visitorGrowthFactor: 1.2, // Even more exponential
-    churnRateFactor: 0.8, // Improving churn over time
-    visitorToInstallFactor: 1.1,
-    installToSubFactor: 1.1,
-    plans: [
-      {
-        name: 'Starter',
-        customers: 80,
-        price: 29,
-        churnRate: 5.0,
-      },
-      {
-        name: 'Solo',
-        customers: 40,
-        price: 79,
-        churnRate: 2.5,
-      },
-      {
-        name: 'Team',
-        customers: 10,
-        price: 199,
-        churnRate: 1.5,
-      }
-    ]
   }
 };
 
+// Computed to check if current preset is a user preset
+const isUserPreset = computed(() => {
+  return userPresets.value.some(p => p.id === selectedPreset.value);
+});
+
+// Function to save current configuration as a new preset
+function saveCurrentAsPreset() {
+  // Prompt for name
+  const presetName = prompt("Enter a name for this preset (changes will auto-save):");
+  if (!presetName || presetName.trim() === '') return;
+  
+  // Generate unique ID
+  const presetId = 'user-preset-' + Date.now();
+  
+  // Create preset object
+  const newPreset = {
+    id: presetId,
+    name: presetName,
+    mrrGoal: mrrGoal.value,
+    initialVisitors: initialVisitors.value,
+    averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+    visitorToInstallRate: visitorToInstallRate.value,
+    installToSubRate: installToSubRate.value,
+    visitorGrowthFactor: visitorGrowthFactor.value,
+    churnRateFactor: churnRateFactor.value,
+    visitorToInstallFactor: visitorToInstallFactor.value,
+    installToSubFactor: installToSubFactor.value,
+    plans: JSON.parse(JSON.stringify(breakdownPlans.value)) // Deep clone
+  };
+  
+  // Add to user presets
+  userPresets.value.push(newPreset);
+  
+  // Save to localStorage
+  saveUserPresets();
+  
+  // Select the new preset
+  selectedPreset.value = presetId;
+  
+  // Close menu
+  showPresetMenu.value = false;
+}
+
+// Function to update the current user preset
+function updateCurrentPreset() {
+  if (!isUserPreset.value) return;
+  
+  // Find the preset
+  const presetIndex = userPresets.value.findIndex(p => p.id === selectedPreset.value);
+  if (presetIndex === -1) return;
+  
+  // Confirm update
+  if (!confirm(`Update preset "${userPresets.value[presetIndex].name}" with current values?`)) return;
+  
+  // Update preset data
+  userPresets.value[presetIndex] = {
+    ...userPresets.value[presetIndex], // Keep id and name
+    mrrGoal: mrrGoal.value,
+    initialVisitors: initialVisitors.value,
+    averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+    visitorToInstallRate: visitorToInstallRate.value,
+    installToSubRate: installToSubRate.value,
+    visitorGrowthFactor: visitorGrowthFactor.value,
+    churnRateFactor: churnRateFactor.value,
+    visitorToInstallFactor: visitorToInstallFactor.value,
+    installToSubFactor: installToSubFactor.value,
+    plans: JSON.parse(JSON.stringify(breakdownPlans.value)) // Deep clone
+  };
+  
+  // Save to localStorage
+  saveUserPresets();
+  
+  // Close menu
+  showPresetMenu.value = false;
+}
+
+// Function to delete the selected user preset
+function deleteSelectedPreset() {
+  if (!isUserPreset.value) return;
+  
+  // Find the preset
+  const presetIndex = userPresets.value.findIndex(p => p.id === selectedPreset.value);
+  if (presetIndex === -1) return;
+  
+  // Confirm deletion
+  const presetName = userPresets.value[presetIndex].name;
+  if (!confirm(`Delete preset "${presetName}"? This cannot be undone.`)) return;
+  
+  // Remove the preset
+  userPresets.value.splice(presetIndex, 1);
+  
+  // Save to localStorage
+  saveUserPresets();
+  
+  // Switch to levelsio preset
+  selectedPreset.value = 'levelsio';
+  
+  // Close menu
+  showPresetMenu.value = false;
+}
+
+// Function to save user presets to localStorage
+function saveUserPresets() {
+  localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(userPresets.value));
+}
+
+// Function to load user presets from localStorage
+function loadUserPresets() {
+  const savedPresets = localStorage.getItem(USER_PRESETS_KEY);
+  if (savedPresets) {
+    try {
+      userPresets.value = JSON.parse(savedPresets);
+    } catch (error) {
+      console.error('Error loading user presets:', error);
+    }
+  }
+}
+
 // Function to apply a preset configuration
 function applyPreset() {
-  const preset = presets[selectedPreset.value];
-  if (!preset || Object.keys(preset).length === 0) return; // Skip if custom or empty preset
+  let preset;
+  
+  // Check if it's a built-in preset
+  if (presets[selectedPreset.value]) {
+    preset = presets[selectedPreset.value];
+  } 
+  // Check if it's a user preset
+  else if (isUserPreset.value) {
+    const userPreset = userPresets.value.find(p => p.id === selectedPreset.value);
+    if (userPreset) {
+      preset = userPreset;
+    }
+  }
+  
+  // If preset not found or empty, use Levelsio (the default)
+  if (!preset || Object.keys(preset).length === 0) {
+    selectedPreset.value = 'levelsio';
+    preset = presets['levelsio'];
+  }
   
   // Apply all preset values to reactive state
   if (preset.mrrGoal !== undefined) mrrGoal.value = preset.mrrGoal;
@@ -515,62 +671,6 @@ function applyPreset() {
   
   // Save changes to localStorage
   saveStateToLocalStorage();
-}
-
-// Function to save all state to localStorage
-function saveStateToLocalStorage() {
-  const stateToSave = {
-    selectedPreset: selectedPreset.value,
-    mrrGoal: mrrGoal.value,
-    initialVisitors: initialVisitors.value,
-    averageVisitorGrowthRate: averageVisitorGrowthRate.value,
-    visitorToInstallRate: visitorToInstallRate.value,
-    installToSubRate: installToSubRate.value,
-    selectedCurrency: selectedCurrency.value,
-    maxProjectionMonths: maxProjectionMonths.value,
-    showRateDetails: showRateDetails.value,
-    showPlanDistribution: showPlanDistribution.value,
-    currentMonth: currentMonth.value,
-    visitorGrowthFactor: visitorGrowthFactor.value,
-    churnRateFactor: churnRateFactor.value,
-    visitorToInstallFactor: visitorToInstallFactor.value,
-    installToSubFactor: installToSubFactor.value,
-    breakdownPlans: breakdownPlans.value
-  };
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-}
-
-// Function to load state from localStorage
-function loadStateFromLocalStorage() {
-  const savedState = localStorage.getItem(STORAGE_KEY);
-  if (savedState) {
-    try {
-      const parsedState = JSON.parse(savedState);
-      
-      // Load all values from saved state
-      if (parsedState.selectedPreset !== undefined) selectedPreset.value = parsedState.selectedPreset;
-      if (parsedState.mrrGoal !== undefined) mrrGoal.value = parsedState.mrrGoal;
-      if (parsedState.initialVisitors !== undefined) initialVisitors.value = parsedState.initialVisitors;
-      if (parsedState.averageVisitorGrowthRate !== undefined) averageVisitorGrowthRate.value = parsedState.averageVisitorGrowthRate;
-      if (parsedState.visitorToInstallRate !== undefined) visitorToInstallRate.value = parsedState.visitorToInstallRate;
-      if (parsedState.installToSubRate !== undefined) installToSubRate.value = parsedState.installToSubRate;
-      if (parsedState.selectedCurrency !== undefined) selectedCurrency.value = parsedState.selectedCurrency;
-      if (parsedState.maxProjectionMonths !== undefined) maxProjectionMonths.value = parsedState.maxProjectionMonths;
-      if (parsedState.showRateDetails !== undefined) showRateDetails.value = parsedState.showRateDetails;
-      if (parsedState.showPlanDistribution !== undefined) showPlanDistribution.value = parsedState.showPlanDistribution;
-      if (parsedState.currentMonth !== undefined) currentMonth.value = parsedState.currentMonth;
-      if (parsedState.visitorGrowthFactor !== undefined) visitorGrowthFactor.value = parsedState.visitorGrowthFactor;
-      if (parsedState.churnRateFactor !== undefined) churnRateFactor.value = parsedState.churnRateFactor;
-      if (parsedState.visitorToInstallFactor !== undefined) visitorToInstallFactor.value = parsedState.visitorToInstallFactor;
-      if (parsedState.installToSubFactor !== undefined) installToSubFactor.value = parsedState.installToSubFactor;
-      if (parsedState.breakdownPlans !== undefined) breakdownPlans.value = parsedState.breakdownPlans;
-      
-      console.log('Loaded saved state from localStorage');
-    } catch (error) {
-      console.error('Error loading saved state:', error);
-    }
-  }
 }
 
 // Get access to the global instance
@@ -630,23 +730,54 @@ watch(() => selectedTheme.value, (newTheme) => {
   saveStateToLocalStorage();
 });
 
-// Watch for changes in all input values
-watch(() => mrrGoal.value, () => saveStateToLocalStorage());
-watch(() => initialVisitors.value, () => saveStateToLocalStorage());
-watch(() => averageVisitorGrowthRate.value, () => saveStateToLocalStorage());
-watch(() => visitorToInstallRate.value, () => saveStateToLocalStorage());
-watch(() => installToSubRate.value, () => saveStateToLocalStorage());
-watch(() => selectedCurrency.value, () => saveStateToLocalStorage());
-watch(() => maxProjectionMonths.value, () => saveStateToLocalStorage());
-watch(() => showRateDetails.value, () => saveStateToLocalStorage());
-watch(() => showPlanDistribution.value, () => saveStateToLocalStorage());
-watch(() => currentMonth.value, () => saveStateToLocalStorage());
-watch(() => visitorGrowthFactor.value, () => saveStateToLocalStorage());
-watch(() => churnRateFactor.value, () => saveStateToLocalStorage());
-watch(() => visitorToInstallFactor.value, () => saveStateToLocalStorage());
-watch(() => installToSubFactor.value, () => saveStateToLocalStorage());
-// Deep watch for the plans array to detect any changes to its items
-watch(() => breakdownPlans.value, () => saveStateToLocalStorage(), { deep: true });
+// Watch for changes in main inputs and save to localStorage
+watch(
+  [
+    mrrGoal, 
+    initialVisitors, 
+    averageVisitorGrowthRate, 
+    visitorToInstallRate, 
+    installToSubRate,
+    selectedCurrency,
+    maxProjectionMonths,
+    showRateDetails,
+    showPlanDistribution,
+    currentMonth,
+    visitorGrowthFactor,
+    churnRateFactor,
+    visitorToInstallFactor,
+    installToSubFactor,
+    breakdownPlans
+  ],
+  () => {
+    saveStateToLocalStorage();
+    
+    // Automatically update the current preset if it's a user preset
+    if (isUserPreset.value) {
+      const presetIndex = userPresets.value.findIndex(p => p.id === selectedPreset.value);
+      if (presetIndex !== -1) {
+        // Update preset data with current values
+        userPresets.value[presetIndex] = {
+          ...userPresets.value[presetIndex], // Keep id and name
+          mrrGoal: mrrGoal.value,
+          initialVisitors: initialVisitors.value,
+          averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+          visitorToInstallRate: visitorToInstallRate.value,
+          installToSubRate: installToSubRate.value,
+          visitorGrowthFactor: visitorGrowthFactor.value,
+          churnRateFactor: churnRateFactor.value,
+          visitorToInstallFactor: visitorToInstallFactor.value,
+          installToSubFactor: installToSubFactor.value,
+          plans: JSON.parse(JSON.stringify(breakdownPlans.value)) // Deep clone
+        };
+        
+        // Save to localStorage
+        saveUserPresets();
+      }
+    }
+  },
+  { deep: true }
+);
 
 // Update the plan management functions to save state
 function addPlan() {
@@ -687,8 +818,21 @@ onMounted(() => {
     document.documentElement.classList.add('theme-monokai')
   }
   
-  // Load all other state
-  loadStateFromLocalStorage();
+  // First load user presets - must be done before loading state
+  // to properly validate preset selection
+  loadUserPresets();
+  
+  // Try to load state from localStorage
+  const savedState = localStorage.getItem('saasProjectorState');
+  
+  if (savedState) {
+    // If we have saved state, load it (includes preset selection)
+    loadStateFromLocalStorage();
+  } else {
+    // Apply default Levelsio preset if no saved state
+    selectedPreset.value = 'levelsio';
+    applyPreset();
+  }
 });
 
 // Computed total MRR (calculated from price * customers)
@@ -1067,6 +1211,80 @@ function getARRGoalSummary() {
   const prefix = difference >= 0 ? '+' : '';
   return `${prefix}${selectedCurrency.value}${difference.toFixed(2)} (${prefix}${(difference / arrGoal * 100).toFixed(1)}%)`;
 }
+
+// Function to save current state to localStorage
+const saveStateToLocalStorage = () => {
+  const stateToSave = {
+    selectedPreset: selectedPreset.value,
+    mrrGoal: mrrGoal.value,
+    initialVisitors: initialVisitors.value,
+    averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+    visitorToInstallRate: visitorToInstallRate.value,
+    installToSubRate: installToSubRate.value,
+    selectedCurrency: selectedCurrency.value,
+    maxProjectionMonths: maxProjectionMonths.value,
+    showRateDetails: showRateDetails.value,
+    showPlanDistribution: showPlanDistribution.value,
+    currentMonth: currentMonth.value,
+    visitorGrowthFactor: visitorGrowthFactor.value,
+    churnRateFactor: churnRateFactor.value,
+    visitorToInstallFactor: visitorToInstallFactor.value,
+    installToSubFactor: installToSubFactor.value,
+    breakdownPlans: breakdownPlans.value
+  };
+  
+  localStorage.setItem('saasProjectorState', JSON.stringify(stateToSave));
+};
+
+// Function to load saved state from localStorage
+const loadStateFromLocalStorage = () => {
+  const savedState = localStorage.getItem('saasProjectorState');
+  
+  if (savedState) {
+    try {
+      const state = JSON.parse(savedState);
+      
+      // Load selected preset first (important to do this before other values)
+      if (state.selectedPreset !== undefined) {
+        selectedPreset.value = state.selectedPreset;
+      }
+      
+      // Load basic metrics
+      if (state.mrrGoal !== undefined) mrrGoal.value = state.mrrGoal;
+      if (state.initialVisitors !== undefined) initialVisitors.value = state.initialVisitors;
+      if (state.averageVisitorGrowthRate !== undefined) averageVisitorGrowthRate.value = state.averageVisitorGrowthRate;
+      if (state.visitorToInstallRate !== undefined) visitorToInstallRate.value = state.visitorToInstallRate;
+      if (state.installToSubRate !== undefined) installToSubRate.value = state.installToSubRate;
+      if (state.selectedCurrency !== undefined) selectedCurrency.value = state.selectedCurrency;
+      if (state.maxProjectionMonths !== undefined) maxProjectionMonths.value = state.maxProjectionMonths;
+      if (state.showRateDetails !== undefined) showRateDetails.value = state.showRateDetails;
+      if (state.showPlanDistribution !== undefined) showPlanDistribution.value = state.showPlanDistribution;
+      if (state.currentMonth !== undefined) currentMonth.value = state.currentMonth;
+      if (state.visitorGrowthFactor !== undefined) visitorGrowthFactor.value = state.visitorGrowthFactor;
+      if (state.churnRateFactor !== undefined) churnRateFactor.value = state.churnRateFactor;
+      if (state.visitorToInstallFactor !== undefined) visitorToInstallFactor.value = state.visitorToInstallFactor;
+      if (state.installToSubFactor !== undefined) installToSubFactor.value = state.installToSubFactor;
+      
+      // Load plan types
+      if (state.breakdownPlans && Array.isArray(state.breakdownPlans)) {
+        breakdownPlans.value = state.breakdownPlans;
+      }
+      
+      // Verify that the selected preset is valid
+      if (selectedPreset.value !== 'levelsio' && 
+          selectedPreset.value !== 'vc-startup' && 
+          !userPresets.value.some(p => p.id === selectedPreset.value)) {
+        // If the preset doesn't exist, fall back to levelsio
+        selectedPreset.value = 'levelsio';
+      }
+      
+      console.log('Loaded saved state with preset:', selectedPreset.value);
+      
+    } catch (error) {
+      console.error('Error loading saved state:', error);
+    }
+  }
+};
 </script>
 
 <style scoped>
@@ -1653,5 +1871,169 @@ input {
   content: "";
   animation: none;
   margin-left: 0;
+}
+
+/* Add styles for preset management */
+.preset-menu {
+  margin-top: 5px;
+  padding: 8px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 4px;
+  background-color: var(--bg-color, #fff);
+}
+
+.preset-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.action-btn {
+  padding: 3px;
+  font-size: 12px;
+  border: 1px solid var(--border-color, #ddd);
+  background-color: var(--button-bg, #f5f5f5);
+  color: var(--text-color, #333);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.delete-btn {
+  color: #dc3545;
+}
+
+.small-btn {
+  background: none;
+  border: 1px solid var(--border-color, #ddd);
+  padding: 2px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.small-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Theme-specific styles for preset menu */
+.theme-hacker .preset-menu {
+  border-color: #0f0;
+  background-color: #000;
+}
+
+.theme-hacker .action-btn {
+  border-color: #0f0;
+  background-color: #001800;
+  color: #0f0;
+}
+
+.theme-hacker .action-btn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.theme-hacker .small-btn {
+  border-color: #0f0;
+  color: #0f0;
+}
+
+.theme-hacker .delete-btn {
+  color: #f00;
+}
+
+.theme-terminal .preset-menu {
+  border-color: #a8a8a8;
+  background-color: #000;
+}
+
+.theme-terminal .action-btn {
+  border-color: #a8a8a8;
+  background-color: #181818;
+  color: #a8a8a8;
+}
+
+.theme-terminal .action-btn:hover {
+  background-color: rgba(168, 168, 168, 0.1);
+}
+
+.theme-terminal .small-btn {
+  border-color: #a8a8a8;
+  color: #a8a8a8;
+}
+
+.theme-amber .preset-menu {
+  border-color: #ffb000;
+  background-color: #000;
+}
+
+.theme-amber .action-btn {
+  border-color: #ffb000;
+  background-color: #1a1000;
+  color: #ffb000;
+}
+
+.theme-amber .action-btn:hover {
+  background-color: rgba(255, 176, 0, 0.1);
+}
+
+.theme-amber .small-btn {
+  border-color: #ffb000;
+  color: #ffb000;
+}
+
+.theme-monokai .preset-menu {
+  border-color: #49483e;
+  background-color: #272822;
+}
+
+.theme-monokai .action-btn {
+  border-color: #49483e;
+  background-color: #3e3d32;
+  color: #f8f8f2;
+}
+
+.theme-monokai .action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.theme-monokai .small-btn {
+  border-color: #49483e;
+  color: #fd971f;
+}
+
+.theme-monokai .delete-btn {
+  color: #f92672;
+}
+
+/* Auto-save indicator styles */
+.auto-save-info {
+  margin-top: 8px;
+  padding: 5px;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.05);
+  font-style: italic;
+  text-align: center;
+}
+
+.theme-hacker .auto-save-info {
+  background-color: rgba(0, 255, 0, 0.1);
+  color: #0f0;
+}
+
+.theme-terminal .auto-save-info {
+  background-color: rgba(168, 168, 168, 0.1);
+  color: #a8a8a8;
+}
+
+.theme-amber .auto-save-info {
+  background-color: rgba(255, 176, 0, 0.1);
+  color: #ffb000;
+}
+
+.theme-monokai .auto-save-info {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #a6e22e;
 }
 </style> 
