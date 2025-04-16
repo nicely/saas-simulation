@@ -1,6 +1,10 @@
-# Pricing Dashboard - Excel-like Interface in Vue 3
+# SaaS Growth Simulation
 
-A simple Excel-like interface built with Vue 3 and Composition API for managing pricing plans, MRR goals, and growth predictions.
+A comprehensive SaaS growth simulation tool built with Vue 3 and Composition API for modeling revenue growth, customer acquisition, and churn predictions for software-as-a-service businesses.
+
+## Online Demo
+
+Try the live demo: [https://nicely.github.io/saas-simulation/](https://nicely.github.io/saas-simulation/)
 
 ## Features
 
