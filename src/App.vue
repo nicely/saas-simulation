@@ -3,10 +3,7 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
 </script>
 
 <template>
-  <div class="app">
-    <header>
-      <h1>Saas projection</h1>
-    </header>
+  <div class="app" :class="{ 'theme-hacker': $root && $root.selectedTheme === 'hacker' }">
     <main>
       <ExcelLikeApp />
     </main>
@@ -20,34 +17,77 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
 body {
   margin: 0;
   font-family: Arial, sans-serif;
+  background-color: var(--bg-color, #fff);
+  color: var(--text-color, #333);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .app {
-  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg-color, #fff);
+  color: var(--text-color, #333);
 }
 
 header {
   margin-bottom: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
 }
 
 footer {
   margin-top: 30px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-color, #eee);
   text-align: center;
   font-size: 14px;
-  color: #666;
+  color: var(--text-color, #666);
 }
 
 footer a {
-  color: #3498db;
+  color: var(--link-color, #3498db);
   text-decoration: none;
 }
 
 footer a:hover {
   text-decoration: underline;
+}
+
+:root {
+  --bg-color: #fff;
+  --border-color: #eee;
+  --text-color: #666;
+  --link-color: #3498db;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #121212;
+    --border-color: #333;
+    --text-color: #bbb;
+    --link-color: #5dade2;
+  }
+}
+
+/* Hacker theme overrides */
+.theme-hacker {
+  --bg-color: #000;
+  --border-color: #0f0;
+  --text-color: #0f0;
+  --link-color: #0f0;
+}
+
+.theme-hacker footer {
+  text-shadow: 0 0 5px #0f0;
+}
+
+.theme-hacker footer a {
+  color: #0f0 !important;
+  text-decoration: underline;
+  text-shadow: 0 0 5px #0f0;
+}
+
+.theme-hacker footer a:hover {
+  text-shadow: 0 0 10px #0f0;
 }
 </style>

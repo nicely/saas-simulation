@@ -4,13 +4,13 @@ Import and use this component in your main App.vue or similar entry point.
 -->
 
 <template>
-  <div>
+  <div :class="{ 'theme-hacker': selectedTheme === 'hacker' }" class="app-container">
     <!-- STEP 3: Main Content - Two-column layout -->
     <div class="two-column-layout">
       <!-- Left Column: General Settings and Plan Information -->
       <div class="left-column">
         <!-- MRR Goal and Growth Rates Section -->
-        <h3>General Settings</h3>
+        <h3 id="general-settings">General Settings</h3>
         <table border="1" cellpadding="5" cellspacing="0">
           <thead>
             <tr>
@@ -25,6 +25,15 @@ Import and use this component in your main App.vue or similar entry point.
                   <option value="$">$ (USD)</option>
                   <option value="€">€ (EUR)</option>
                   <option value="£">£ (GBP)</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>Theme</td>
+              <td>
+                <select v-model="selectedTheme">
+                  <option value="default">Default</option>
+                  <option value="hacker">Hacker</option>
                 </select>
               </td>
             </tr>
@@ -118,9 +127,13 @@ Import and use this component in your main App.vue or similar entry point.
         <!-- Plan Distribution Table -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 15px;">
           <h3 style="margin: 0;">Plan Distribution</h3>
-          <label style="font-weight: normal; font-size: 14px;">
-            <input type="checkbox" v-model="showPlanDistribution" /> Show distribution details
-          </label>
+          <button 
+            @click="showPlanDistribution = !showPlanDistribution" 
+            class="toggle-btn"
+            :class="{'expanded': showPlanDistribution}"
+            :title="showPlanDistribution ? 'Hide distribution details' : 'Show distribution details'">
+            Show distribution details <span class="arrow">&#9654;</span>
+          </button>
         </div>
         <table v-if="showPlanDistribution" border="1" cellpadding="5" cellspacing="0">
           <thead>
@@ -204,72 +217,78 @@ Import and use this component in your main App.vue or similar entry point.
       <div class="right-column">
         <!-- Projection Table with title showing start month -->
         <h3>Projection Analysis</h3>
-        <table border="1" cellpadding="5" cellspacing="0">
-          <thead>
-            <tr>
-              <th :colspan="showRateDetails ? 9 : 6">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ formatMonthWithYear((currentMonth + 1) % 12, Math.floor((currentMonth + 1) / 12)) }})</span>
-                  <label style="font-weight: normal; font-size: 14px;">
-                    <input type="checkbox" v-model="showRateDetails" /> Show rate details
-                  </label>
-                </div>
-              </th>
-            </tr>
-            <tr>
-              <th>Month</th>
-              <th title="Projected website visitors per month with applied growth rate">Visitors</th>
-              <th v-if="showRateDetails" title="Growth rate applied for this month">Growth Rate (%)</th>
-              <th title="New subscribers gained based on conversion rate applied to monthly visitors">Subscribers Gained</th>
-              <th v-if="showRateDetails" title="Conversion rate applied for this month">Conv. Rate (%)</th>
-              <th title="Subscribers lost based on churn rate applied to previous month's customer base">Churned Customers</th>
-              <th v-if="showRateDetails" title="Churn rate applied for this month">Churn Rate (%)</th>
-              <th title="Total customers at end of month: previous month + new subscribers - churn">Net Customers (End of Month)</th>
-              <th title="Projected revenue: Net customers × average price per customer">Projected MRR</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(month, mIdx) in predictionMonths" :key="mIdx">
-              <td>{{ month.name }}</td>
-              <td :title="`Calculated with month ${mIdx+1} growth rate: ${(averageVisitorGrowthRate * Math.pow(visitorGrowthFactor, mIdx)).toFixed(2)}%`">
-                {{ getVisitorsForMonth(month.projectionIndex) }}
-              </td>
-              <td v-if="showRateDetails">
-                {{ getMonthlyGrowthRate(month.projectionIndex).toFixed(2) }}%
-              </td>
-              <td :title="getPlanDistributionTooltip(month.projectionIndex)">
-                {{ getSubscribersForMonth(month.projectionIndex) }}
-              </td>
-              <td v-if="showRateDetails">
-                {{ getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2) }}%
-              </td>
-              <td :title="`Calculated as: Previous month customers × ${getChurnRateForMonth(month.projectionIndex).toFixed(2)}% churn rate`">
-                {{ getChurnForMonth(month.projectionIndex) }}
-              </td>
-              <td v-if="showRateDetails">
-                {{ getChurnRateForMonth(month.projectionIndex).toFixed(2) }}%
-              </td>
-              <td title="Previous month + New subscribers - Churn">
-                {{ getNetCustomersForMonth(month.projectionIndex) }}
-              </td>
-              <td :title="`Net customers × ${selectedCurrency}${averagePricePerCustomer.toFixed(2)} average price`">
-                {{ selectedCurrency }}{{ getProjectedMRRForMonth(month.projectionIndex) }}
-              </td>
-            </tr>
-            <!-- Add a summary row at the bottom -->
-            <tr class="summary-row">
-              <td><strong>Total</strong></td>
-              <td title="Sum of all projected visitors across 12 months"><strong>{{ getTotalVisitors() }}</strong></td>
-              <td v-if="showRateDetails"></td>
-              <td :title="getTotalPlanDistributionTooltip()"><strong>{{ getTotalSubscribersGained() }}</strong></td>
-              <td v-if="showRateDetails"></td>
-              <td title="Sum of all churned customers across 12 months"><strong>{{ getTotalChurnedCustomers() }}</strong></td>
-              <td v-if="showRateDetails"></td>
-              <td><!-- No total for Net Customers as it's end-of-month --></td>
-              <td title="Projected MRR at the end of the 12-month period"><strong>{{ selectedCurrency }}{{ getLastMonthMRR() }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-container">
+          <table border="1" cellpadding="5" cellspacing="0">
+            <thead>
+              <tr>
+                <th :colspan="showRateDetails ? 9 : 6">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ formatMonthWithYear((currentMonth + 1) % 12, Math.floor((currentMonth + 1) / 12)) }})</span>
+                    <button 
+                      @click="showRateDetails = !showRateDetails" 
+                      class="toggle-btn"
+                      :class="{'expanded': showRateDetails}"
+                      :title="showRateDetails ? 'Hide rate details' : 'Show rate details'">
+                      Show rate details <span class="arrow">&#9654;</span>
+                    </button>
+                  </div>
+                </th>
+              </tr>
+              <tr>
+                <th>Month</th>
+                <th title="Projected website visitors per month with applied growth rate">Visitors</th>
+                <th v-if="showRateDetails" title="Growth rate applied for this month">Growth%</th>
+                <th title="New subscribers gained based on conversion rate applied to monthly visitors">Subs+</th>
+                <th v-if="showRateDetails" title="Conversion rate applied for this month">Conv%</th>
+                <th title="Subscribers lost based on churn rate applied to previous month's customer base">Churned</th>
+                <th v-if="showRateDetails" title="Churn rate applied for this month">Churn%</th>
+                <th title="Total customers at end of month: previous month + new subscribers - churn">Net Cust.</th>
+                <th title="Projected revenue: Net customers × average price per customer">MRR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(month, mIdx) in predictionMonths" :key="mIdx">
+                <td>{{ month.name }}</td>
+                <td :title="`Calculated with month ${mIdx+1} growth rate: ${(averageVisitorGrowthRate * Math.pow(visitorGrowthFactor, mIdx)).toFixed(2)}%`">
+                  {{ getVisitorsForMonth(month.projectionIndex) }}
+                </td>
+                <td v-if="showRateDetails">
+                  {{ getMonthlyGrowthRate(month.projectionIndex).toFixed(2) }}%
+                </td>
+                <td :title="getPlanDistributionTooltip(month.projectionIndex)">
+                  {{ getSubscribersForMonth(month.projectionIndex) }}
+                </td>
+                <td v-if="showRateDetails">
+                  {{ getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2) }}%
+                </td>
+                <td :title="`Calculated as: Previous month customers × ${getChurnRateForMonth(month.projectionIndex).toFixed(2)}% churn rate`">
+                  {{ getChurnForMonth(month.projectionIndex) }}
+                </td>
+                <td v-if="showRateDetails">
+                  {{ getChurnRateForMonth(month.projectionIndex).toFixed(2) }}%
+                </td>
+                <td title="Previous month + New subscribers - Churn">
+                  {{ getNetCustomersForMonth(month.projectionIndex) }}
+                </td>
+                <td :title="`Net customers × ${selectedCurrency}${averagePricePerCustomer.toFixed(2)} average price`">
+                  {{ selectedCurrency }}{{ getProjectedMRRForMonth(month.projectionIndex) }}
+                </td>
+              </tr>
+              <!-- Add a summary row at the bottom -->
+              <tr class="summary-row">
+                <td><strong>Total</strong></td>
+                <td title="Sum of all projected visitors across 12 months"><strong>{{ getTotalVisitors() }}</strong></td>
+                <td v-if="showRateDetails"></td>
+                <td :title="getTotalPlanDistributionTooltip()"><strong>{{ getTotalSubscribersGained() }}</strong></td>
+                <td v-if="showRateDetails"></td>
+                <td title="Sum of all churned customers across 12 months"><strong>{{ getTotalChurnedCustomers() }}</strong></td>
+                <td v-if="showRateDetails"></td>
+                <td><!-- No total for Net Customers as it's end-of-month --></td>
+                <td title="Projected MRR at the end of the 12-month period"><strong>{{ selectedCurrency }}{{ getLastMonthMRR() }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <!-- Add MRR Goal Summary as a separate section -->
         <table border="1" cellpadding="5" cellspacing="0">
@@ -305,7 +324,8 @@ Import and use this component in your main App.vue or similar entry point.
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { getCurrentInstance } from 'vue';
 
 /**
  * STEP 0: Define all your state (reactive variables) and logic here in the <script setup> block.
@@ -322,6 +342,41 @@ const maxProjectionMonths = ref(12); // Default projection period
 const showRateDetails = ref(false); // Toggle for showing rate details in projection table
 const showPlanDistribution = ref(false); // Toggle for showing plan distribution table
 const currentYear = ref(new Date().getFullYear()); // Add current year
+const selectedTheme = ref('default'); // Added theme selection
+
+// Get access to the global instance
+const app = getCurrentInstance()
+
+// Watch for theme changes and update the global app state
+watch(() => selectedTheme.value, (newTheme) => {
+  // Update the global theme property
+  if (app && app.appContext.config.globalProperties) {
+    app.appContext.config.globalProperties.selectedTheme = newTheme
+  }
+  
+  // Apply theme class to html element
+  if (newTheme === 'hacker') {
+    document.documentElement.classList.add('theme-hacker')
+    document.documentElement.classList.remove('light-mode')
+    document.documentElement.classList.remove('dark-mode')
+  } else {
+    // For default theme, use light mode
+    document.documentElement.classList.remove('theme-hacker')
+    document.documentElement.classList.add('light-mode')
+    document.documentElement.classList.remove('dark-mode')
+  }
+  
+  // Save theme selection to localStorage
+  localStorage.setItem('selectedTheme', newTheme)
+})
+
+// Load saved theme from localStorage on component mount
+onMounted(() => {
+  const savedTheme = localStorage.getItem('selectedTheme')
+  if (savedTheme) {
+    selectedTheme.value = savedTheme
+  }
+})
 
 // Growth factors for rates (1.0 means no change month to month)
 const visitorGrowthFactor = ref(1.0);
@@ -691,6 +746,28 @@ function getTotalPlanDistributionTooltip() {
 </script>
 
 <style scoped>
+/* Global container styles */
+.app-container {
+  padding: 40px 20px 20px 20px;
+  min-height: 100vh;
+  transition: all 0.3s ease;
+  background-color: var(--bg-color, #fff);
+  color: var(--text-color, #333);
+}
+
+/* Title spacing to prevent cutting off */
+#general-settings {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Table container to handle overflow */
+.table-container {
+  overflow-x: auto;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+
 /* Minimal styling so everything looks like a basic table. Adjust as needed. */
 table {
   width: 100%;
@@ -700,24 +777,46 @@ table {
 
 th, td {
   text-align: left;
+  padding: 5px;
+  font-size: 12px;
+}
+
+/* Ensure table doesn't overflow container */
+.right-column {
+  overflow-x: auto;
+}
+
+/* Make projection table more compact when details are shown */
+.right-column table th,
+.right-column table td {
+  white-space: nowrap;
 }
 
 /* Make the month column wider in the projection table */
 .right-column table th:first-child,
 .right-column table td:first-child {
-  min-width: 85px;
-  width: 85px;
+  min-width: 70px;
+  width: 70px;
+}
+
+/* Adjust number columns to be more compact */
+.right-column table th:not(:first-child),
+.right-column table td:not(:first-child) {
+  text-align: right;
+  width: auto;
+  min-width: 60px;
 }
 
 /* Target MRR Analysis table styling - make columns equal width */
 .right-column table:last-of-type td:first-child,
 .right-column table:last-of-type td:last-child {
   width: 50%;
+  white-space: normal;
 }
 
 h3, h4 {
   text-align: left;
-  margin-top: 1.5rem;
+  margin-top: 0;
   margin-bottom: 0.5rem;
   font-size: 16px;
 }
@@ -726,20 +825,35 @@ input {
   width: 100px;
 }
 
-/* Two-column layout styles */
+/* Two-column layout styles with responsive behavior */
 .two-column-layout {
   display: flex;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .left-column {
   flex: 1;
+  min-width: 300px;
   max-width: 40%;
 }
 
 .right-column {
   flex: 2;
+  min-width: 450px;
   max-width: 60%;
+}
+
+@media (max-width: 900px) {
+  .two-column-layout {
+    flex-direction: column;
+  }
+  
+  .left-column,
+  .right-column {
+    max-width: 100%;
+    min-width: 100%;
+  }
 }
 
 /* Add styles for the summary row */
@@ -780,5 +894,144 @@ input {
 
 .plan-name-input {
   width: 80px;
+}
+
+/* Hacker Theme Styles */
+.theme-hacker {
+  background-color: #000 !important;
+  color: #0f0 !important;
+  font-family: 'Courier New', monospace !important;
+  transition: all 0.3s ease;
+  padding: 20px;
+  position: relative;
+}
+
+/* Style tables in hacker theme */
+.theme-hacker table {
+  border-color: #0f0;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.theme-hacker th {
+  background-color: #001800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.theme-hacker th,
+.theme-hacker td {
+  border-color: #0f0;
+}
+
+/* Style form elements in hacker theme */
+.theme-hacker input,
+.theme-hacker select {
+  background-color: #000;
+  color: #0f0;
+  border: 1px solid #0f0;
+}
+
+/* Style headings in hacker theme */
+.theme-hacker h3,
+.theme-hacker h4 {
+  color: #0f0;
+  text-shadow: 0 0 5px #0f0;
+}
+
+/* Style the summary row in hacker theme */
+.theme-hacker .summary-row {
+  background-color: #001800;
+}
+
+.theme-hacker .summary-row td {
+  border-top: 2px solid #0f0;
+}
+
+/* Override colors for positive/negative in hacker theme */
+.theme-hacker .positive {
+  color: #0f0;
+  font-weight: bold;
+  text-shadow: 0 0 5px #0f0;
+}
+
+.theme-hacker .negative {
+  color: #f00;
+  font-weight: bold;
+}
+
+/* Style links in hacker theme */
+.theme-hacker a {
+  color: #0f0 !important;
+  text-decoration: underline;
+}
+
+.theme-hacker a:hover {
+  text-shadow: 0 0 5px #0f0;
+}
+
+/* Add subtle scanline effect */
+.theme-hacker::before {
+  content: "";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(
+    rgba(0, 50, 0, 0.1) 50%, 
+    rgba(0, 0, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;
+  z-index: 1000;
+  opacity: 0.15;
+}
+
+/* Add blinking cursor animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.theme-hacker h3::after {
+  content: "_";
+  display: inline-block;
+  animation: blink 1s step-end infinite;
+  margin-left: 3px;
+}
+
+/* Toggle button styling */
+.toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.theme-hacker .toggle-btn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-size: 10px;
+  margin-top: 1px;
+}
+
+.toggle-btn.expanded .arrow {
+  transform: rotate(90deg);
 }
 </style> 
