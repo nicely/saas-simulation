@@ -39,7 +39,7 @@ Import and use this component in your main App.vue or similar entry point.
               <td>
                 <select v-model="currentMonth" :title="`Current month (projection will start from next month)`">
                   <option v-for="(month, index) in monthNames" :key="index" :value="index">
-                    {{ month }}
+                    {{ month }} '{{ (currentYear % 100) }}
                   </option>
                 </select>
               </td>
@@ -209,7 +209,7 @@ Import and use this component in your main App.vue or similar entry point.
             <tr>
               <th :colspan="showRateDetails ? 9 : 6">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ monthNames[(currentMonth + 1) % 12] }})</span>
+                  <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ formatMonthWithYear((currentMonth + 1) % 12, Math.floor((currentMonth + 1) / 12)) }})</span>
                   <label style="font-weight: normal; font-size: 14px;">
                     <input type="checkbox" v-model="showRateDetails" /> Show rate details
                   </label>
@@ -280,11 +280,11 @@ Import and use this component in your main App.vue or similar entry point.
           </thead>
           <tbody>
             <tr>
-              <td>Current MRR ({{ monthNames[currentMonth] }})</td>
+              <td>Current MRR ({{ formatMonthWithYear(currentMonth) }})</td>
               <td>{{ selectedCurrency }}{{ totalMRR }}</td>
             </tr>
             <tr>
-              <td>Projected MRR ({{ monthNames[(currentMonth + maxProjectionMonths) % 12] }})</td>
+              <td>Projected MRR ({{ formatMonthWithYear((currentMonth + maxProjectionMonths) % 12, Math.floor((currentMonth + maxProjectionMonths) / 12)) }})</td>
               <td>{{ selectedCurrency }}{{ getLastMonthMRR() }}</td>
             </tr>
             <tr>
@@ -321,6 +321,7 @@ const selectedCurrency = ref('$'); // Default currency is USD
 const maxProjectionMonths = ref(12); // Default projection period
 const showRateDetails = ref(false); // Toggle for showing rate details in projection table
 const showPlanDistribution = ref(false); // Toggle for showing plan distribution table
+const currentYear = ref(new Date().getFullYear()); // Add current year
 
 // Growth factors for rates (1.0 means no change month to month)
 const visitorGrowthFactor = ref(1.0);
@@ -386,6 +387,12 @@ const averagePricePerCustomer = computed(() => {
   return totalMRR.value / totalCustomers;
 });
 
+// Helper function to format month with 2-digit year
+function formatMonthWithYear(month, yearOffset = 0) {
+  const year = (currentYear.value + yearOffset) % 100; // Get last 2 digits of year
+  return `${monthNames[month]} '${year}`;
+}
+
 // Predictions
 const predictionMonths = computed(() => {
   const months = [];
@@ -393,10 +400,15 @@ const predictionMonths = computed(() => {
   // Generate months starting from the NEXT month after currentMonth
   for (let i = 0; i < maxProjectionMonths.value; i++) {
     const monthIndex = (currentMonth.value + i + 1) % 12; // +1 to start from next month
+    
+    // Calculate year offset based on month cycling
+    const yearOffset = Math.floor((currentMonth.value + i + 1) / 12);
+    
     months.push({
-      name: monthNames[monthIndex],
+      name: formatMonthWithYear(monthIndex, yearOffset),
       index: monthIndex,
-      projectionIndex: i // This is the index used for calculations (0-11)
+      projectionIndex: i, // This is the index used for calculations (0-11)
+      yearOffset: yearOffset // Store year offset for reference
     });
   }
   
@@ -688,6 +700,19 @@ table {
 
 th, td {
   text-align: left;
+}
+
+/* Make the month column wider in the projection table */
+.right-column table th:first-child,
+.right-column table td:first-child {
+  min-width: 85px;
+  width: 85px;
+}
+
+/* Target MRR Analysis table styling - make columns equal width */
+.right-column table:last-of-type td:first-child,
+.right-column table:last-of-type td:last-child {
+  width: 50%;
 }
 
 h3, h4 {
