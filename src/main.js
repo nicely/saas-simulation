@@ -6,15 +6,15 @@ import App from './App.vue'
 const app = createApp(App)
 
 // Add global property to track selected theme from ExcelLikeApp
-app.config.globalProperties.selectedTheme = 'hacker' // Set hacker as default
+app.config.globalProperties.selectedTheme = 'monokai' // Set monokai as default
 
-// By default, set hacker theme
-document.documentElement.classList.add('theme-hacker')
+// By default, set monokai theme
+document.documentElement.classList.add('theme-monokai')
 document.documentElement.classList.remove('light-mode')
 document.documentElement.classList.remove('dark-mode')
 document.documentElement.classList.remove('theme-terminal')
 document.documentElement.classList.remove('theme-amber')
-document.documentElement.classList.remove('theme-monokai')
+document.documentElement.classList.remove('theme-hacker')
 
 // Apply theme class to html element based on system preference only if user hasn't selected a theme
 const savedTheme = localStorage.getItem('selectedTheme')
@@ -59,8 +59,8 @@ if (savedTheme) {
     document.documentElement.classList.remove('dark-mode')
   }
 } else {
-  // If no saved theme, set hacker as default and save it
-  localStorage.setItem('selectedTheme', 'hacker')
+  // If no saved theme, set monokai as default and save it
+  localStorage.setItem('selectedTheme', 'monokai')
 }
 
 // Listen for theme changes from system

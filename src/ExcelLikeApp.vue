@@ -435,7 +435,7 @@ const maxProjectionMonths = ref(12);
 const showRateDetails = ref(false);
 const showPlanDistribution = ref(false);
 const currentYear = ref(new Date().getFullYear());
-const selectedTheme = ref('hacker');
+const selectedTheme = ref('monokai');
 const currentMonth = ref(new Date().getMonth());
 const visitorGrowthFactor = ref(1.0);
 const churnRateFactor = ref(1.0);
@@ -966,6 +966,9 @@ function applyPreset() {
   if (preset.plans) {
     breakdownPlans.value = JSON.parse(JSON.stringify(preset.plans)); // Deep clone to avoid reference issues
   }
+  
+  // Make sure the theme is applied
+  applyTheme(selectedTheme.value);
   
   // Save changes using the unified save function
   saveState();
