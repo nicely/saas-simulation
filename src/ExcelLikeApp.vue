@@ -56,12 +56,6 @@ Import and use this component in your main App.vue or similar entry point.
                 <input type="number" v-model.number="maxProjectionMonths" min="1" max="60" title="Number of months to include in the projection" />
               </td>
             </tr>
-            <tr>
-              <td title="Median churn rate calculated from all plan churn rates">Median Churn Rate (%)</td>
-              <td>
-                <input type="number" :value="medianChurnRate" disabled title="Median churn rate calculated from all plan-specific churn rates" />
-              </td>
-            </tr>
           </tbody>
         </table>
 
@@ -170,9 +164,9 @@ Import and use this component in your main App.vue or similar entry point.
               </td>
             </tr>
             <tr>
-              <td>Churn Rate</td>
+              <td>Median Churn Rate</td>
               <td>
-                <input type="number" v-model.number="churnRate" step="0.01" title="Monthly percentage of customers who cancel subscriptions" />
+                <input type="number" :value="medianChurnRate" disabled title="Median churn rate calculated from all plan-specific churn rates" />
               </td>
               <td>
                 <input type="number" v-model.number="churnRateFactor" step="0.01" min="0.5" max="2" title="Churn multiplier (1 = constant)" class="factor-input" />
@@ -215,7 +209,7 @@ Import and use this component in your main App.vue or similar entry point.
             <tr>
               <th :colspan="showRateDetails ? 9 : 6">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ monthNames[(currentMonth.value + 1) % 12] }})</span>
+                  <span>{{ maxProjectionMonths }}-Month Projection (Starting from {{ monthNames[(currentMonth + 1) % 12] }})</span>
                   <label style="font-weight: normal; font-size: 14px;">
                     <input type="checkbox" v-model="showRateDetails" /> Show rate details
                   </label>
@@ -237,7 +231,7 @@ Import and use this component in your main App.vue or similar entry point.
           <tbody>
             <tr v-for="(month, mIdx) in predictionMonths" :key="mIdx">
               <td>{{ month.name }}</td>
-              <td :title="`Calculated with month ${mIdx+1} growth rate: ${(averageVisitorGrowthRate.value * Math.pow(visitorGrowthFactor.value, mIdx)).toFixed(2)}%`">
+              <td :title="`Calculated with month ${mIdx+1} growth rate: ${(averageVisitorGrowthRate * Math.pow(visitorGrowthFactor, mIdx)).toFixed(2)}%`">
                 {{ getVisitorsForMonth(month.projectionIndex) }}
               </td>
               <td v-if="showRateDetails">
@@ -286,11 +280,11 @@ Import and use this component in your main App.vue or similar entry point.
           </thead>
           <tbody>
             <tr>
-              <td>Current MRR ({{ monthNames[currentMonth.value] }})</td>
+              <td>Current MRR ({{ monthNames[currentMonth] }})</td>
               <td>{{ selectedCurrency }}{{ totalMRR }}</td>
             </tr>
             <tr>
-              <td>Projected MRR ({{ monthNames[(currentMonth.value + maxProjectionMonths.value) % 12] }})</td>
+              <td>Projected MRR ({{ monthNames[(currentMonth + maxProjectionMonths) % 12] }})</td>
               <td>{{ selectedCurrency }}{{ getLastMonthMRR() }}</td>
             </tr>
             <tr>
@@ -321,7 +315,6 @@ import { ref, computed } from 'vue';
 const mrrGoal = ref(15802);
 const initialVisitors = ref(1000); // Added initial visitors count
 const averageVisitorGrowthRate = ref(-2.66); // example from screenshot
-const churnRate = ref(2);
 const visitorToInstallRate = ref(2.7);
 const installToSubRate = ref(24);
 const selectedCurrency = ref('$'); // Default currency is USD
