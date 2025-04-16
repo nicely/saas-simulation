@@ -11,6 +11,7 @@ Import and use this component in your main App.vue or similar entry point.
       <div class="left-column">
         <!-- MRR Goal and Growth Rates Section -->
         <h3 id="general-settings">General Settings</h3>
+        <!-- Add preset selector at the top of Basic Settings -->
         <table border="1" cellpadding="5" cellspacing="0">
           <thead>
             <tr>
@@ -18,6 +19,16 @@ Import and use this component in your main App.vue or similar entry point.
             </tr>
           </thead>
           <tbody>
+            <tr>
+              <td>Preset Configuration</td>
+              <td>
+                <select v-model="selectedPreset" @change="applyPreset">
+                  <option value="custom">Custom</option>
+                  <option value="vc-startup">VC-Backed Startup</option>
+                  <option value="levelsio">Levelsio Solo</option>
+                </select>
+              </td>
+            </tr>
             <tr>
               <td>Currency</td>
               <td>
@@ -355,23 +366,218 @@ import { getCurrentInstance } from 'vue';
  * STEP 0: Define all your state (reactive variables) and logic here in the <script setup> block.
  */
 
-// MRR Goal and Growth Rate values
+// STATE: All the app state variables that need to be persisted
 const mrrGoal = ref(15802);
-const initialVisitors = ref(1000); // Added initial visitors count
-const averageVisitorGrowthRate = ref(-2.66); // example from screenshot
+const initialVisitors = ref(1000);
+const averageVisitorGrowthRate = ref(-2.66);
 const visitorToInstallRate = ref(2.7);
 const installToSubRate = ref(24);
-const selectedCurrency = ref('$'); // Default currency is USD
-const maxProjectionMonths = ref(12); // Default projection period
-const showRateDetails = ref(false); // Toggle for showing rate details in projection table
-const showPlanDistribution = ref(false); // Toggle for showing plan distribution table
-const currentYear = ref(new Date().getFullYear()); // Add current year
-const selectedTheme = ref('hacker'); // Set hacker theme as default
+const selectedCurrency = ref('$');
+const maxProjectionMonths = ref(12);
+const showRateDetails = ref(false);
+const showPlanDistribution = ref(false);
+const currentYear = ref(new Date().getFullYear());
+const selectedTheme = ref('hacker');
+const currentMonth = ref(new Date().getMonth());
+const visitorGrowthFactor = ref(1.0);
+const churnRateFactor = ref(1.0);
+const visitorToInstallFactor = ref(1.05);
+const installToSubFactor = ref(1.02);
+const breakdownPlans = ref([
+  {
+    name: 'Starter',
+    customers: 30,
+    price: 49,
+    churnRate: 2.5,
+  },
+  {
+    name: 'Essentials',
+    customers: 7,
+    price: 99,
+    churnRate: 1.8,
+  },
+  {
+    name: 'Scale',
+    customers: 5,
+    price: 199,
+    churnRate: 1.5,
+  },
+  {
+    name: 'Prime',
+    customers: 2,
+    price: 299,
+    churnRate: 1.0,
+  },
+]);
+
+// Month data - not persisted as it's constant
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Storage key for app state
+const STORAGE_KEY = 'saas-projection-data';
+
+// Add preset configurations
+const selectedPreset = ref('custom'); // Default to custom
+
+// Preset configurations
+const presets = {
+  'custom': {}, // Empty means keep current values
+  'vc-startup': {
+    mrrGoal: 100000,
+    initialVisitors: 10000,
+    averageVisitorGrowthRate: 15,
+    visitorToInstallRate: 3.5,
+    installToSubRate: 15,
+    visitorGrowthFactor: 1.1,
+    churnRateFactor: 0.9,
+    visitorToInstallFactor: 1.05,
+    installToSubFactor: 1.05,
+    plans: [
+      {
+        name: 'Basic',
+        customers: 65,
+        price: 49,
+        churnRate: 5.0,
+      },
+      {
+        name: 'Pro',
+        customers: 30,
+        price: 99,
+        churnRate: 3.5,
+      },
+      {
+        name: 'Enterprise',
+        customers: 12,
+        price: 299,
+        churnRate: 2.0,
+      },
+      {
+        name: 'Enterprise+',
+        customers: 3,
+        price: 999,
+        churnRate: 1.0,
+      }
+    ]
+  },
+  'levelsio': {
+    mrrGoal: 50000,
+    initialVisitors: 5000,
+    averageVisitorGrowthRate: 30, // Exponential growth
+    visitorToInstallRate: 2.0,
+    installToSubRate: 25, // High conversion for solo business
+    visitorGrowthFactor: 1.2, // Even more exponential
+    churnRateFactor: 0.8, // Improving churn over time
+    visitorToInstallFactor: 1.1,
+    installToSubFactor: 1.1,
+    plans: [
+      {
+        name: 'Starter',
+        customers: 80,
+        price: 29,
+        churnRate: 5.0,
+      },
+      {
+        name: 'Solo',
+        customers: 40,
+        price: 79,
+        churnRate: 2.5,
+      },
+      {
+        name: 'Team',
+        customers: 10,
+        price: 199,
+        churnRate: 1.5,
+      }
+    ]
+  }
+};
+
+// Function to apply a preset configuration
+function applyPreset() {
+  const preset = presets[selectedPreset.value];
+  if (!preset || Object.keys(preset).length === 0) return; // Skip if custom or empty preset
+  
+  // Apply all preset values to reactive state
+  if (preset.mrrGoal !== undefined) mrrGoal.value = preset.mrrGoal;
+  if (preset.initialVisitors !== undefined) initialVisitors.value = preset.initialVisitors;
+  if (preset.averageVisitorGrowthRate !== undefined) averageVisitorGrowthRate.value = preset.averageVisitorGrowthRate;
+  if (preset.visitorToInstallRate !== undefined) visitorToInstallRate.value = preset.visitorToInstallRate;
+  if (preset.installToSubRate !== undefined) installToSubRate.value = preset.installToSubRate;
+  if (preset.visitorGrowthFactor !== undefined) visitorGrowthFactor.value = preset.visitorGrowthFactor;
+  if (preset.churnRateFactor !== undefined) churnRateFactor.value = preset.churnRateFactor;
+  if (preset.visitorToInstallFactor !== undefined) visitorToInstallFactor.value = preset.visitorToInstallFactor;
+  if (preset.installToSubFactor !== undefined) installToSubFactor.value = preset.installToSubFactor;
+  
+  // Apply plan configurations if present
+  if (preset.plans) {
+    breakdownPlans.value = JSON.parse(JSON.stringify(preset.plans)); // Deep clone to avoid reference issues
+  }
+  
+  // Save changes to localStorage
+  saveStateToLocalStorage();
+}
+
+// Function to save all state to localStorage
+function saveStateToLocalStorage() {
+  const stateToSave = {
+    selectedPreset: selectedPreset.value,
+    mrrGoal: mrrGoal.value,
+    initialVisitors: initialVisitors.value,
+    averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+    visitorToInstallRate: visitorToInstallRate.value,
+    installToSubRate: installToSubRate.value,
+    selectedCurrency: selectedCurrency.value,
+    maxProjectionMonths: maxProjectionMonths.value,
+    showRateDetails: showRateDetails.value,
+    showPlanDistribution: showPlanDistribution.value,
+    currentMonth: currentMonth.value,
+    visitorGrowthFactor: visitorGrowthFactor.value,
+    churnRateFactor: churnRateFactor.value,
+    visitorToInstallFactor: visitorToInstallFactor.value,
+    installToSubFactor: installToSubFactor.value,
+    breakdownPlans: breakdownPlans.value
+  };
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+}
+
+// Function to load state from localStorage
+function loadStateFromLocalStorage() {
+  const savedState = localStorage.getItem(STORAGE_KEY);
+  if (savedState) {
+    try {
+      const parsedState = JSON.parse(savedState);
+      
+      // Load all values from saved state
+      if (parsedState.selectedPreset !== undefined) selectedPreset.value = parsedState.selectedPreset;
+      if (parsedState.mrrGoal !== undefined) mrrGoal.value = parsedState.mrrGoal;
+      if (parsedState.initialVisitors !== undefined) initialVisitors.value = parsedState.initialVisitors;
+      if (parsedState.averageVisitorGrowthRate !== undefined) averageVisitorGrowthRate.value = parsedState.averageVisitorGrowthRate;
+      if (parsedState.visitorToInstallRate !== undefined) visitorToInstallRate.value = parsedState.visitorToInstallRate;
+      if (parsedState.installToSubRate !== undefined) installToSubRate.value = parsedState.installToSubRate;
+      if (parsedState.selectedCurrency !== undefined) selectedCurrency.value = parsedState.selectedCurrency;
+      if (parsedState.maxProjectionMonths !== undefined) maxProjectionMonths.value = parsedState.maxProjectionMonths;
+      if (parsedState.showRateDetails !== undefined) showRateDetails.value = parsedState.showRateDetails;
+      if (parsedState.showPlanDistribution !== undefined) showPlanDistribution.value = parsedState.showPlanDistribution;
+      if (parsedState.currentMonth !== undefined) currentMonth.value = parsedState.currentMonth;
+      if (parsedState.visitorGrowthFactor !== undefined) visitorGrowthFactor.value = parsedState.visitorGrowthFactor;
+      if (parsedState.churnRateFactor !== undefined) churnRateFactor.value = parsedState.churnRateFactor;
+      if (parsedState.visitorToInstallFactor !== undefined) visitorToInstallFactor.value = parsedState.visitorToInstallFactor;
+      if (parsedState.installToSubFactor !== undefined) installToSubFactor.value = parsedState.installToSubFactor;
+      if (parsedState.breakdownPlans !== undefined) breakdownPlans.value = parsedState.breakdownPlans;
+      
+      console.log('Loaded saved state from localStorage');
+    } catch (error) {
+      console.error('Error loading saved state:', error);
+    }
+  }
+}
 
 // Get access to the global instance
-const app = getCurrentInstance()
+const app = getCurrentInstance();
 
 // Watch for theme changes and update the global app state
+// Theme is handled separately since it's already been setup with persistence
 watch(() => selectedTheme.value, (newTheme) => {
   // Update the global theme property
   if (app && app.appContext.config.globalProperties) {
@@ -418,11 +624,49 @@ watch(() => selectedTheme.value, (newTheme) => {
   }
   
   // Save theme selection to localStorage
-  localStorage.setItem('selectedTheme', newTheme)
-})
+  localStorage.setItem('selectedTheme', newTheme);
+  
+  // Also save to our main state storage
+  saveStateToLocalStorage();
+});
 
-// Load saved theme from localStorage on component mount
+// Watch for changes in all input values
+watch(() => mrrGoal.value, () => saveStateToLocalStorage());
+watch(() => initialVisitors.value, () => saveStateToLocalStorage());
+watch(() => averageVisitorGrowthRate.value, () => saveStateToLocalStorage());
+watch(() => visitorToInstallRate.value, () => saveStateToLocalStorage());
+watch(() => installToSubRate.value, () => saveStateToLocalStorage());
+watch(() => selectedCurrency.value, () => saveStateToLocalStorage());
+watch(() => maxProjectionMonths.value, () => saveStateToLocalStorage());
+watch(() => showRateDetails.value, () => saveStateToLocalStorage());
+watch(() => showPlanDistribution.value, () => saveStateToLocalStorage());
+watch(() => currentMonth.value, () => saveStateToLocalStorage());
+watch(() => visitorGrowthFactor.value, () => saveStateToLocalStorage());
+watch(() => churnRateFactor.value, () => saveStateToLocalStorage());
+watch(() => visitorToInstallFactor.value, () => saveStateToLocalStorage());
+watch(() => installToSubFactor.value, () => saveStateToLocalStorage());
+// Deep watch for the plans array to detect any changes to its items
+watch(() => breakdownPlans.value, () => saveStateToLocalStorage(), { deep: true });
+
+// Update the plan management functions to save state
+function addPlan() {
+  breakdownPlans.value.push({
+    name: 'New Plan',
+    customers: 0,
+    price: 0,
+    churnRate: 2.0,
+  });
+  saveStateToLocalStorage();
+}
+
+function removePlan(idx) {
+  breakdownPlans.value.splice(idx, 1);
+  saveStateToLocalStorage();
+}
+
+// Load all saved state on component mount
 onMounted(() => {
+  // Load theme from localStorage (this was already implemented)
   const savedTheme = localStorage.getItem('selectedTheme')
   if (savedTheme) {
     selectedTheme.value = savedTheme
@@ -442,59 +686,10 @@ onMounted(() => {
   } else if (selectedTheme.value === 'monokai') {
     document.documentElement.classList.add('theme-monokai')
   }
-})
-
-// Growth factors for rates (1.0 means no change month to month)
-const visitorGrowthFactor = ref(1.0);
-const churnRateFactor = ref(1.0);
-const visitorToInstallFactor = ref(1.05); // 5% improvement each month
-const installToSubFactor = ref(1.02); // 2% improvement each month
-
-// Month data
-const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const currentMonth = ref(new Date().getMonth()); // Default to current month
-
-// Breakdown Data - Updated to use price instead of mrr
-const breakdownPlans = ref([
-  {
-    name: 'Starter',
-    customers: 30,
-    price: 49,
-    churnRate: 2.5,
-  },
-  {
-    name: 'Essentials',
-    customers: 7,
-    price: 99,
-    churnRate: 1.8,
-  },
-  {
-    name: 'Scale',
-    customers: 5,
-    price: 199,
-    churnRate: 1.5,
-  },
-  {
-    name: 'Prime',
-    customers: 2,
-    price: 299,
-    churnRate: 1.0,
-  },
-]);
-
-// Add/Remove plans
-function addPlan() {
-  breakdownPlans.value.push({
-    name: 'New Plan',
-    customers: 0,
-    price: 0,
-    churnRate: 2.0,
-  });
-}
-
-function removePlan(idx) {
-  breakdownPlans.value.splice(idx, 1);
-}
+  
+  // Load all other state
+  loadStateFromLocalStorage();
+});
 
 // Computed total MRR (calculated from price * customers)
 const totalMRR = computed(() => {
@@ -1117,19 +1312,6 @@ input {
   opacity: 0.15;
 }
 
-/* Add blinking cursor animation */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.theme-hacker h3::after {
-  content: "_";
-  display: inline-block;
-  animation: blink 1s step-end infinite;
-  margin-left: 3px;
-}
-
 /* Toggle button styling */
 .toggle-btn {
   background: none;
@@ -1258,19 +1440,6 @@ input {
   z-index: 1000;
 }
 
-/* Add blinking cursor animation to terminal theme */
-@keyframes blink-terminal {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.theme-terminal h3::after {
-  content: "_";
-  display: inline-block;
-  animation: blink-terminal 1s step-end infinite;
-  margin-left: 3px;
-}
-
 /* Override toggle button for terminal theme */
 .theme-terminal .toggle-btn:hover {
   background-color: rgba(168, 168, 168, 0.1);
@@ -1368,19 +1537,6 @@ input {
   );
   opacity: 0.3;
   z-index: 1000;
-}
-
-/* Add blinking cursor animation to amber theme */
-@keyframes blink-amber {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.theme-amber h3::after {
-  content: "_";
-  display: inline-block;
-  animation: blink-amber 1s step-end infinite;
-  margin-left: 3px;
 }
 
 /* Override toggle button for amber theme */
@@ -1488,5 +1644,14 @@ input {
 
 .theme-monokai .separator-row {
   border-bottom: 1px solid #49483e;
+}
+
+/* Remove blinking cursor animations from all themes */
+.theme-hacker h3::after,
+.theme-terminal h3::after,
+.theme-amber h3::after {
+  content: "";
+  animation: none;
+  margin-left: 0;
 }
 </style> 
