@@ -3,7 +3,12 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
 </script>
 
 <template>
-  <div class="app" :class="{ 'theme-hacker': $root && $root.selectedTheme === 'hacker' }">
+  <div class="app" :class="{ 
+    'theme-hacker': $root && $root.selectedTheme === 'hacker',
+    'theme-terminal': $root && $root.selectedTheme === 'terminal',
+    'theme-amber': $root && $root.selectedTheme === 'amber',
+    'theme-monokai': $root && $root.selectedTheme === 'monokai'
+  }">
     <main>
       <ExcelLikeApp />
     </main>
@@ -89,5 +94,72 @@ footer a:hover {
 
 .theme-hacker footer a:hover {
   text-shadow: 0 0 10px #0f0;
+}
+
+/* Terminal theme overrides - old computer boot screen style */
+.theme-terminal {
+  --bg-color: #000;
+  --border-color: #a8a8a8;
+  --text-color: #a8a8a8;
+  --link-color: #a8a8a8;
+}
+
+.theme-terminal footer {
+  text-shadow: 0 0 5px #a8a8a8;
+}
+
+.theme-terminal footer a {
+  color: #a8a8a8 !important;
+  text-decoration: underline;
+  text-shadow: 0 0 5px #a8a8a8;
+}
+
+.theme-terminal footer a:hover {
+  text-shadow: 0 0 10px #a8a8a8;
+}
+
+/* Amber theme overrides - classic amber computer screen */
+.theme-amber {
+  --bg-color: #000;
+  --border-color: #ffb000;
+  --text-color: #ffb000;
+  --link-color: #ffb000;
+}
+
+.theme-amber footer {
+  text-shadow: 0 0 5px #ffb000;
+}
+
+.theme-amber footer a {
+  color: #ffb000 !important;
+  text-decoration: underline;
+  text-shadow: 0 0 5px #ffb000;
+}
+
+.theme-amber footer a:hover {
+  text-shadow: 0 0 10px #ffb000;
+}
+
+/* Monokai theme overrides */
+.theme-monokai {
+  --bg-color: #272822;
+  --border-color: #49483e;
+  --text-color: #f8f8f2;
+  --link-color: #66d9ef;
+}
+
+.theme-monokai footer {
+  border-top: 1px solid #49483e;
+  color: #f8f8f2;
+}
+
+.theme-monokai footer a {
+  color: #66d9ef !important;
+  text-decoration: none;
+}
+
+.theme-monokai footer a:hover {
+  color: #ae81ff !important;
+  text-decoration: underline;
 }
 </style>

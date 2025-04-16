@@ -97,7 +97,7 @@ button:focus-visible {
 }
 
 /* Reset to light theme when not using system preference */
-html:not(.dark-mode) {
+html:not(.dark-mode):not(.theme-hacker):not(.theme-terminal):not(.theme-amber):not(.theme-monokai) {
   --bg-color: #ffffff;
   --text-color: #333333;
   --border-color: #eee;
@@ -113,9 +113,48 @@ html.theme-hacker,
   --bg-color: #000 !important;
   --text-color: #0f0 !important;
   --border-color: #0f0 !important;
-  --link-color: #0ff !important;
-  --link-hover-color: #0ff !important;
+  --link-color: #0f0 !important;
+  --link-hover-color: #0f0 !important;
   --button-bg: #000 !important;
   --button-border-hover: #0f0 !important;
   font-family: 'Courier New', monospace !important;
+}
+
+/* Terminal theme - old computer boot screen style */
+html.theme-terminal,
+.theme-terminal {
+  --bg-color: #000 !important;
+  --text-color: #a8a8a8 !important;
+  --border-color: #a8a8a8 !important;
+  --link-color: #a8a8a8 !important;
+  --link-hover-color: #a8a8a8 !important;
+  --button-bg: #000 !important;
+  --button-border-hover: #a8a8a8 !important;
+  font-family: 'Courier New', monospace !important;
+}
+
+/* Amber theme - classic amber/orange computer terminal */
+html.theme-amber,
+.theme-amber {
+  --bg-color: #000 !important;
+  --text-color: #ffb000 !important;
+  --border-color: #ffb000 !important;
+  --link-color: #ffb000 !important;
+  --link-hover-color: #ffb000 !important;
+  --button-bg: #000 !important;
+  --button-border-hover: #ffb000 !important;
+  font-family: 'Courier New', monospace !important;
+}
+
+/* Monokai theme - popular code editor theme */
+html.theme-monokai,
+.theme-monokai {
+  --bg-color: #272822 !important;
+  --text-color: #f8f8f2 !important;
+  --border-color: #49483e !important;
+  --link-color: #66d9ef !important;
+  --link-hover-color: #ae81ff !important;
+  --button-bg: #3e3d32 !important;
+  --button-border-hover: #f92672 !important;
+  font-family: 'Consolas', 'Monaco', monospace !important;
 }

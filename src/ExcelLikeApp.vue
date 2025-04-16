@@ -4,7 +4,7 @@ Import and use this component in your main App.vue or similar entry point.
 -->
 
 <template>
-  <div :class="{ 'theme-hacker': selectedTheme === 'hacker' }" class="app-container">
+  <div :class="{ 'theme-hacker': selectedTheme === 'hacker', 'theme-terminal': selectedTheme === 'terminal', 'theme-amber': selectedTheme === 'amber', 'theme-monokai': selectedTheme === 'monokai' }" class="app-container">
     <!-- STEP 3: Main Content - Two-column layout -->
     <div class="two-column-layout">
       <!-- Left Column: General Settings and Plan Information -->
@@ -34,6 +34,9 @@ Import and use this component in your main App.vue or similar entry point.
                 <select v-model="selectedTheme">
                   <option value="default">Default</option>
                   <option value="hacker">Hacker</option>
+                  <option value="terminal">Terminal</option>
+                  <option value="amber">Amber</option>
+                  <option value="monokai">Monokai</option>
                 </select>
               </td>
             </tr>
@@ -182,7 +185,7 @@ Import and use this component in your main App.vue or similar entry point.
                 <input type="number" :value="medianChurnRate" disabled title="Median churn rate calculated from all plan-specific churn rates" />
               </td>
               <td>
-                <input type="number" v-model.number="churnRateFactor" step="0.01" min="0.5" max="2" title="Churn multiplier (1 = constant)" class="factor-input" />
+                <input type="number" v-model.number="churnRateFactor" step="0.1" min="-5" max="2" title="Churn rate evolution: 1=constant, <1=gradual reduction, negative=faster reduction, >1=increasing churn (capped at 25%)" class="factor-input" />
               </td>
             </tr>
             <tr>
@@ -294,7 +297,7 @@ Import and use this component in your main App.vue or similar entry point.
         <table border="1" cellpadding="5" cellspacing="0">
           <thead>
             <tr>
-              <th colspan="2">Target MRR Analysis</th>
+              <th colspan="2">Target Revenue Analysis</th>
             </tr>
           </thead>
           <tbody>
@@ -311,9 +314,30 @@ Import and use this component in your main App.vue or similar entry point.
               <td>{{ selectedCurrency }}{{ mrrGoal }}</td>
             </tr>
             <tr>
-              <td>Difference from Goal</td>
+              <td>Difference from MRR Goal</td>
               <td :class="{ 'positive': isGoalReached(), 'negative': !isGoalReached() }">
                 {{ getMrrGoalSummary() }}
+              </td>
+            </tr>
+            <tr class="separator-row">
+              <td colspan="2"></td>
+            </tr>
+            <tr>
+              <td>Current ARR ({{ formatMonthWithYear(currentMonth) }})</td>
+              <td>{{ selectedCurrency }}{{ getCurrentARR() }}</td>
+            </tr>
+            <tr>
+              <td>Projected ARR ({{ formatMonthWithYear((currentMonth + maxProjectionMonths) % 12, Math.floor((currentMonth + maxProjectionMonths) / 12)) }})</td>
+              <td>{{ selectedCurrency }}{{ getProjectedARR() }}</td>
+            </tr>
+            <tr>
+              <td>ARR Goal</td>
+              <td>{{ selectedCurrency }}{{ getARRGoal() }}</td>
+            </tr>
+            <tr>
+              <td>Difference from ARR Goal</td>
+              <td :class="{ 'positive': isARRGoalReached(), 'negative': !isARRGoalReached() }">
+                {{ getARRGoalSummary() }}
               </td>
             </tr>
           </tbody>
@@ -342,7 +366,7 @@ const maxProjectionMonths = ref(12); // Default projection period
 const showRateDetails = ref(false); // Toggle for showing rate details in projection table
 const showPlanDistribution = ref(false); // Toggle for showing plan distribution table
 const currentYear = ref(new Date().getFullYear()); // Add current year
-const selectedTheme = ref('default'); // Added theme selection
+const selectedTheme = ref('hacker'); // Set hacker theme as default
 
 // Get access to the global instance
 const app = getCurrentInstance()
@@ -359,9 +383,36 @@ watch(() => selectedTheme.value, (newTheme) => {
     document.documentElement.classList.add('theme-hacker')
     document.documentElement.classList.remove('light-mode')
     document.documentElement.classList.remove('dark-mode')
+    document.documentElement.classList.remove('theme-terminal')
+    document.documentElement.classList.remove('theme-amber')
+    document.documentElement.classList.remove('theme-monokai')
+  } else if (newTheme === 'terminal') {
+    document.documentElement.classList.add('theme-terminal')
+    document.documentElement.classList.remove('light-mode')
+    document.documentElement.classList.remove('dark-mode')
+    document.documentElement.classList.remove('theme-hacker')
+    document.documentElement.classList.remove('theme-amber')
+    document.documentElement.classList.remove('theme-monokai')
+  } else if (newTheme === 'amber') {
+    document.documentElement.classList.add('theme-amber')
+    document.documentElement.classList.remove('light-mode')
+    document.documentElement.classList.remove('dark-mode')
+    document.documentElement.classList.remove('theme-hacker')
+    document.documentElement.classList.remove('theme-terminal')
+    document.documentElement.classList.remove('theme-monokai')
+  } else if (newTheme === 'monokai') {
+    document.documentElement.classList.add('theme-monokai')
+    document.documentElement.classList.remove('light-mode')
+    document.documentElement.classList.remove('dark-mode')
+    document.documentElement.classList.remove('theme-hacker')
+    document.documentElement.classList.remove('theme-terminal')
+    document.documentElement.classList.remove('theme-amber')
   } else {
     // For default theme, use light mode
     document.documentElement.classList.remove('theme-hacker')
+    document.documentElement.classList.remove('theme-terminal')
+    document.documentElement.classList.remove('theme-amber')
+    document.documentElement.classList.remove('theme-monokai')
     document.documentElement.classList.add('light-mode')
     document.documentElement.classList.remove('dark-mode')
   }
@@ -375,6 +426,21 @@ onMounted(() => {
   const savedTheme = localStorage.getItem('selectedTheme')
   if (savedTheme) {
     selectedTheme.value = savedTheme
+  } else {
+    // If no saved theme, default to hacker theme
+    selectedTheme.value = 'hacker'
+    localStorage.setItem('selectedTheme', 'hacker')
+  }
+  
+  // Apply the theme class on component mount
+  if (selectedTheme.value === 'hacker') {
+    document.documentElement.classList.add('theme-hacker')
+  } else if (selectedTheme.value === 'terminal') {
+    document.documentElement.classList.add('theme-terminal')
+  } else if (selectedTheme.value === 'amber') {
+    document.documentElement.classList.add('theme-amber')
+  } else if (selectedTheme.value === 'monokai') {
+    document.documentElement.classList.add('theme-monokai')
   }
 })
 
@@ -601,10 +667,48 @@ function getVisitorToSubRateForMonth(monthIndex) {
 
 function getChurnRateForMonth(monthIndex) {
   let rate = parseFloat(medianChurnRate.value);
+  
+  // When churnRateFactor is 1, keep churn constant
+  if (churnRateFactor.value === 1) {
+    return rate;
+  }
+  
+  // When churnRateFactor is negative, interpret as aggressive reduction
+  if (churnRateFactor.value < 0) {
+    // Calculate the reduction percentage (larger negative numbers mean faster reduction)
+    const reductionPercentage = Math.min(Math.abs(churnRateFactor.value) * 0.1, 0.5); // Cap at 50% reduction per month
+    
+    // Apply the reduction for each month
+    for (let i = 0; i < monthIndex; i++) {
+      rate = rate * (1 - reductionPercentage);
+    }
+    
+    // Ensure we don't go below 0% churn
+    return Math.max(rate, 0);
+  }
+  
+  // When churnRateFactor is between 0 and 1, decrease churn rate over time
+  if (churnRateFactor.value < 1) {
+    // Calculate percentage reduction per month
+    let reductionRate = 1 - churnRateFactor.value;
+    
+    // Apply reduction for each month
+    for (let i = 0; i < monthIndex; i++) {
+      // Reduce by the percentage determined by the factor
+      rate = rate * (1 - reductionRate);
+    }
+    
+    // Ensure we don't go below 0% churn
+    return Math.max(rate, 0);
+  }
+  
+  // When churnRateFactor is greater than 1, increase churn rate over time (original behavior)
   for (let i = 0; i < monthIndex; i++) {
     rate *= churnRateFactor.value;
   }
-  return rate;
+  
+  // Cap the maximum churn rate at 25% to prevent unrealistic scenarios
+  return Math.min(rate, 25);
 }
 
 function getSubscribersForMonth(monthIndex) {
@@ -742,6 +846,31 @@ function getTotalPlanDistributionTooltip() {
   });
   
   return tooltipText;
+}
+
+// ARR Calculations
+function getCurrentARR() {
+  return (totalMRR.value * 12).toFixed(2);
+}
+
+function getProjectedARR() {
+  return (parseFloat(getLastMonthMRR()) * 12).toFixed(2);
+}
+
+function getARRGoal() {
+  return (mrrGoal.value * 12).toFixed(2);
+}
+
+function isARRGoalReached() {
+  return parseFloat(getProjectedARR()) >= parseFloat(getARRGoal());
+}
+
+function getARRGoalSummary() {
+  const projectedARR = parseFloat(getProjectedARR());
+  const arrGoal = parseFloat(getARRGoal());
+  const difference = projectedARR - arrGoal;
+  const prefix = difference >= 0 ? '+' : '';
+  return `${prefix}${selectedCurrency.value}${difference.toFixed(2)} (${prefix}${(difference / arrGoal * 100).toFixed(1)}%)`;
 }
 </script>
 
@@ -1033,5 +1162,331 @@ input {
 
 .toggle-btn.expanded .arrow {
   transform: rotate(90deg);
+}
+
+/* Terminal Theme Styles - Classic gray boot screen look */
+.theme-terminal {
+  background-color: #000000 !important;
+  color: #a8a8a8 !important;
+  font-family: 'Courier New', monospace !important;
+  transition: all 0.3s ease;
+  padding: 20px;
+  position: relative;
+}
+
+/* Style tables in terminal theme */
+.theme-terminal table {
+  border-color: #a8a8a8;
+  box-shadow: 0 0 10px rgba(168, 168, 168, 0.2);
+}
+
+.theme-terminal th {
+  background-color: #181818;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.theme-terminal th,
+.theme-terminal td {
+  border-color: #a8a8a8;
+}
+
+/* Style form elements in terminal theme */
+.theme-terminal input,
+.theme-terminal select {
+  background-color: #000;
+  color: #a8a8a8;
+  border: 1px solid #a8a8a8;
+}
+
+/* Style headings in terminal theme */
+.theme-terminal h3,
+.theme-terminal h4 {
+  color: #a8a8a8;
+  text-shadow: 0 0 5px #a8a8a8;
+}
+
+/* Style the summary row in terminal theme */
+.theme-terminal .summary-row {
+  background-color: #181818;
+}
+
+.theme-terminal .summary-row td {
+  border-top: 2px solid #a8a8a8;
+}
+
+/* Override colors for positive/negative in terminal theme */
+.theme-terminal .positive {
+  color: #a8a8a8;
+  font-weight: bold;
+  text-shadow: 0 0 5px #a8a8a8;
+}
+
+.theme-terminal .negative {
+  color: #a8a8a8;
+  font-weight: bold;
+}
+
+/* Style links in terminal theme */
+.theme-terminal a {
+  color: #a8a8a8 !important;
+  text-decoration: underline;
+}
+
+.theme-terminal a:hover {
+  text-shadow: 0 0 5px #a8a8a8;
+}
+
+/* Add CRT flicker effect */
+.theme-terminal::before {
+  content: "";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  opacity: 0.3;
+  z-index: 1000;
+}
+
+/* Add blinking cursor animation to terminal theme */
+@keyframes blink-terminal {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.theme-terminal h3::after {
+  content: "_";
+  display: inline-block;
+  animation: blink-terminal 1s step-end infinite;
+  margin-left: 3px;
+}
+
+/* Override toggle button for terminal theme */
+.theme-terminal .toggle-btn:hover {
+  background-color: rgba(168, 168, 168, 0.1);
+}
+
+/* Amber Theme Styles - Classic amber/orange terminal */
+.theme-amber {
+  background-color: #000000 !important;
+  color: #ffb000 !important;
+  font-family: 'Courier New', monospace !important;
+  transition: all 0.3s ease;
+  padding: 20px;
+  position: relative;
+}
+
+/* Style tables in amber theme */
+.theme-amber table {
+  border-color: #ffb000;
+  box-shadow: 0 0 10px rgba(255, 176, 0, 0.2);
+}
+
+.theme-amber th {
+  background-color: #1a1000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.theme-amber th,
+.theme-amber td {
+  border-color: #ffb000;
+}
+
+/* Style form elements in amber theme */
+.theme-amber input,
+.theme-amber select {
+  background-color: #000;
+  color: #ffb000;
+  border: 1px solid #ffb000;
+}
+
+/* Style headings in amber theme */
+.theme-amber h3,
+.theme-amber h4 {
+  color: #ffb000;
+  text-shadow: 0 0 5px #ffb000;
+}
+
+/* Style the summary row in amber theme */
+.theme-amber .summary-row {
+  background-color: #1a1000;
+}
+
+.theme-amber .summary-row td {
+  border-top: 2px solid #ffb000;
+}
+
+/* Override colors for positive/negative in amber theme */
+.theme-amber .positive {
+  color: #ffb000;
+  font-weight: bold;
+  text-shadow: 0 0 5px #ffb000;
+}
+
+.theme-amber .negative {
+  color: #ffb000;
+  font-weight: bold;
+}
+
+/* Style links in amber theme */
+.theme-amber a {
+  color: #ffb000 !important;
+  text-decoration: underline;
+}
+
+.theme-amber a:hover {
+  text-shadow: 0 0 5px #ffb000;
+}
+
+/* Add CRT flicker effect with amber color */
+.theme-amber::before {
+  content: "";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 176, 0, 0.03),
+    rgba(255, 176, 0, 0.03) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  opacity: 0.3;
+  z-index: 1000;
+}
+
+/* Add blinking cursor animation to amber theme */
+@keyframes blink-amber {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.theme-amber h3::after {
+  content: "_";
+  display: inline-block;
+  animation: blink-amber 1s step-end infinite;
+  margin-left: 3px;
+}
+
+/* Override toggle button for amber theme */
+.theme-amber .toggle-btn:hover {
+  background-color: rgba(255, 176, 0, 0.1);
+}
+
+/* Monokai Theme Styles */
+.theme-monokai {
+  background-color: #272822 !important;
+  color: #f8f8f2 !important;
+  font-family: 'Consolas', 'Monaco', monospace !important;
+  transition: all 0.3s ease;
+  padding: 20px;
+  position: relative;
+}
+
+/* Style tables in monokai theme */
+.theme-monokai table {
+  border-color: #49483e;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.theme-monokai th {
+  background-color: #3e3d32;
+  letter-spacing: 0.5px;
+}
+
+.theme-monokai th,
+.theme-monokai td {
+  border-color: #49483e;
+}
+
+/* Style form elements in monokai theme */
+.theme-monokai input,
+.theme-monokai select {
+  background-color: #272822;
+  color: #f8f8f2;
+  border: 1px solid #49483e;
+}
+
+/* Style headings in monokai theme */
+.theme-monokai h3,
+.theme-monokai h4 {
+  color: #fd971f; /* Orange */
+}
+
+/* Style the summary row in monokai theme */
+.theme-monokai .summary-row {
+  background-color: #3e3d32;
+}
+
+.theme-monokai .summary-row td {
+  border-top: 2px solid #f92672; /* Pink */
+}
+
+/* Override colors for positive/negative in monokai theme */
+.theme-monokai .positive {
+  color: #a6e22e; /* Green */
+  font-weight: bold;
+}
+
+.theme-monokai .negative {
+  color: #f92672; /* Pink */
+  font-weight: bold;
+}
+
+/* Style links in monokai theme */
+.theme-monokai a {
+  color: #66d9ef !important; /* Blue */
+  text-decoration: none;
+}
+
+.theme-monokai a:hover {
+  color: #ae81ff !important; /* Purple */
+  text-decoration: underline;
+}
+
+/* Override toggle button for monokai theme */
+.theme-monokai .toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.theme-monokai .toggle-btn {
+  color: #f8f8f2;
+}
+
+/* Add a separator row style */
+.separator-row {
+  border-bottom: 1px solid var(--border-color, #eee);
+  height: 10px;
+}
+
+.theme-hacker .separator-row {
+  border-bottom: 1px solid #0f0;
+}
+
+.theme-terminal .separator-row {
+  border-bottom: 1px solid #a8a8a8;
+}
+
+.theme-amber .separator-row {
+  border-bottom: 1px solid #ffb000;
+}
+
+.theme-monokai .separator-row {
+  border-bottom: 1px solid #49483e;
 }
 </style> 
