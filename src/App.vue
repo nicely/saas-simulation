@@ -10,6 +10,9 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
     <main>
       <ExcelLikeApp />
     </main>
+    <footer>
+      <p>The underlying logic of this simulation was crafted by <a href="https://x.com/cembingool" target="_blank">Cem</a>, Head of Data at Juphy.</p>
+    </footer>
   </div>
 </template>
 
@@ -28,5 +31,23 @@ body {
 header {
   margin-bottom: 20px;
   border-bottom: 1px solid #eee;
+}
+
+footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+footer a {
+  color: #3498db;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
 }
 </style>
