@@ -65,6 +65,86 @@ Import and use this component in your main App.vue or similar entry point.
           </tbody>
         </table>
 
+        <!-- Plans Table - Moving back to left column -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 15px;">
+          <h3 style="margin: 0;">Plan Information</h3>
+          <a href="#" @click.prevent="addPlan" style="text-decoration: underline; color: blue; font-size: 14px;">+ Add Plan</a>
+        </div>
+        <table border="1" cellpadding="5" cellspacing="0">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Cust.</th>
+              <th>Price</th>
+              <th>Churn %</th>
+              <th>Remove</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(plan, idx) in breakdownPlans" :key="idx">
+              <td>
+                <!-- Plan Name -->
+                <input type="text" v-model="plan.name" class="plan-name-input" />
+              </td>
+              <td>
+                <!-- Number of Customers -->
+                <input 
+                  type="number" 
+                  v-model.number="plan.customers"
+                  title="Current number of customers subscribed to this plan"
+                  class="small-input"
+                />
+              </td>
+              <td>
+                <!-- Price (not MRR) -->
+                <input 
+                  type="number" 
+                  v-model.number="plan.price"
+                  title="Monthly price of this subscription plan"
+                  class="small-input"
+                />
+              </td>
+              <td>
+                <!-- Churn Rate -->
+                <input 
+                  type="number" 
+                  v-model.number="plan.churnRate"
+                  step="0.01"
+                  title="Monthly churn rate percentage for this plan"
+                  class="small-input"
+                />
+              </td>
+              <td>
+                <a href="#" @click.prevent="removePlan(idx)" style="text-decoration: underline; color: blue; font-size: 12px;">remove</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Plan Distribution Table -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; margin-top: 15px;">
+          <h3 style="margin: 0;">Plan Distribution</h3>
+          <label style="font-weight: normal; font-size: 14px;">
+            <input type="checkbox" v-model="showPlanDistribution" /> Show distribution details
+          </label>
+        </div>
+        <table v-if="showPlanDistribution" border="1" cellpadding="5" cellspacing="0">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th title="Percentage of total customers on this plan">Customer Dist. (%)</th>
+              <th title="Percentage of total MRR from this plan">Revenue Dist. (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(plan, idx) in breakdownPlans" :key="idx">
+              <td>{{ plan.name }}</td>
+              <td>{{ getCustomerDistribution(plan) }}%</td>
+              <td>{{ getRevenueDistribution(plan) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+
         <br />
 
         <!-- Growth and Conversion Rates Table -->
@@ -128,83 +208,6 @@ Import and use this component in your main App.vue or similar entry point.
 
       <!-- Right Column: Projection Table -->
       <div class="right-column">
-        <!-- Plans Table - Moved from left column to top of right column -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="margin: 0;">Plan Information</h3>
-          <a href="#" @click.prevent="addPlan" style="text-decoration: underline; color: blue; font-size: 14px;">+ Add Plan</a>
-        </div>
-        <table border="1" cellpadding="5" cellspacing="0">
-          <thead>
-            <tr>
-              <th>Plan</th>
-              <th>Customers</th>
-              <th>Price ({{ selectedCurrency }})</th>
-              <th>Churn Rate (%)</th>
-              <th>Remove</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(plan, idx) in breakdownPlans" :key="idx">
-              <td>
-                <!-- Plan Name -->
-                <input type="text" v-model="plan.name" />
-              </td>
-              <td>
-                <!-- Number of Customers -->
-                <input 
-                  type="number" 
-                  v-model.number="plan.customers"
-                  title="Current number of customers subscribed to this plan" 
-                />
-              </td>
-              <td>
-                <!-- Price (not MRR) -->
-                <input 
-                  type="number" 
-                  v-model.number="plan.price"
-                  title="Monthly price of this subscription plan" 
-                />
-              </td>
-              <td>
-                <!-- Churn Rate -->
-                <input 
-                  type="number" 
-                  v-model.number="plan.churnRate"
-                  step="0.01"
-                  title="Monthly churn rate percentage for this plan" 
-                />
-              </td>
-              <td>
-                <a href="#" @click.prevent="removePlan(idx)" style="text-decoration: underline; color: blue; font-size: 12px;">remove</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Plan Distribution Table - Moved from left column -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="margin: 0;">Plan Distribution</h3>
-          <label style="font-weight: normal; font-size: 14px;">
-            <input type="checkbox" v-model="showPlanDistribution" /> Show distribution details
-          </label>
-        </div>
-        <table v-if="showPlanDistribution" border="1" cellpadding="5" cellspacing="0">
-          <thead>
-            <tr>
-              <th>Plan</th>
-              <th title="Percentage of total customers on this plan">Customer Distribution (%)</th>
-              <th title="Percentage of total MRR from this plan">Revenue Distribution ({{ selectedCurrency }})</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(plan, idx) in breakdownPlans" :key="idx">
-              <td>{{ plan.name }}</td>
-              <td>{{ getCustomerDistribution(plan) }}%</td>
-              <td>{{ getRevenueDistribution(plan) }}%</td>
-            </tr>
-          </tbody>
-        </table>
-        
         <!-- Projection Table with title showing start month -->
         <h3>Projection Analysis</h3>
         <table border="1" cellpadding="5" cellspacing="0">
@@ -750,5 +753,14 @@ input {
 /* Show question mark cursor on hover for elements with title attribute */
 [title] {
   cursor: help;
+}
+
+/* Add styles for smaller inputs in the plan information table */
+.small-input {
+  width: 55px;
+}
+
+.plan-name-input {
+  width: 80px;
 }
 </style> 
