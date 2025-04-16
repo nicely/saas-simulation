@@ -13,7 +13,7 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
       <ExcelLikeApp />
     </main>
     <footer>
-      <p>The underlying logic of this simulation was crafted by <a href="https://x.com/cembingool" target="_blank">Cem</a>, Head of Data at Juphy.</p>
+      <p>The foundational logic of this simulation was meticulously designed by <a href="https://x.com/cembingool" target="_blank">Cem</a>, Head of Data at Juphy, and subsequently implemented in code by <a href="https://x.com/nicetr" target="_blank">Erdi</a>, Head of Product at Juphy.</p>
     </footer>
   </div>
 </template>

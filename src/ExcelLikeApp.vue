@@ -5,8 +5,28 @@ Import and use this component in your main App.vue or similar entry point.
 
 <template>
   <div :class="{ 'theme-hacker': selectedTheme === 'hacker', 'theme-terminal': selectedTheme === 'terminal', 'theme-amber': selectedTheme === 'amber', 'theme-monokai': selectedTheme === 'monokai' }" class="app-container">
+    <!-- Storage Mode Selection Overlay -->
+    <div v-if="showModeSelection" class="storage-mode-overlay">
+      <div class="storage-mode-dialog">
+        <h2>Choose Storage Mode</h2>
+        <p>How would you like to save your presets?</p>
+        <div class="storage-mode-buttons">
+          <button @click="selectOnlineMode" class="mode-btn online-btn">
+            <span class="icon">🌐</span>
+            <span class="label">Go Online</span>
+            <span class="description">Save in cloud, shareable via URL</span>
+          </button>
+          <button @click="selectOfflineMode" class="mode-btn offline-btn">
+            <span class="icon">💻</span>
+            <span class="label">Keep Offline</span>
+            <span class="description">Save locally in this browser only</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <!-- STEP 3: Main Content - Two-column layout -->
-    <div class="two-column-layout">
+    <div class="two-column-layout" :class="{ 'blurred': showModeSelection }">
       <!-- Left Column: General Settings and Plan Information -->
       <div class="left-column">
         <!-- MRR Goal and Growth Rates Section -->
@@ -246,6 +266,20 @@ Import and use this component in your main App.vue or similar entry point.
 
       <!-- Right Column: Projection Table -->
       <div class="right-column">
+        <!-- Show online indicator when in online mode -->
+        <div v-if="isOnlineMode" class="online-indicator">
+          <div class="online-badge">
+            <span class="online-dot"></span>
+            <span>Online Mode</span>
+          </div>
+          <div class="share-link">
+            <input type="text" readonly :value="shareableLink" ref="shareLinkInput" />
+            <button @click="copyShareLink" class="copy-btn" :title="copySuccess ? 'Copied!' : 'Copy link'">
+              {{ copySuccess ? '✓' : 'Copy' }}
+            </button>
+          </div>
+        </div>
+
         <!-- Projection Table with title showing start month -->
         <h3>Projection Analysis</h3>
         <div class="table-container">
@@ -376,8 +410,15 @@ Import and use this component in your main App.vue or similar entry point.
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeMount } from 'vue';
 import { getCurrentInstance } from 'vue';
+import { createClient } from '@supabase/supabase-js';
+import { v4 as uuidv4 } from 'uuid';
+
+// Supabase configuration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * STEP 0: Define all your state (reactive variables) and logic here in the <script setup> block.
@@ -512,6 +553,258 @@ const presets = {
     ]
   }
 };
+
+// Storage mode state
+const isOnlineMode = ref(false);
+const showModeSelection = ref(true);
+const uniqueId = ref('');
+const isLoading = ref(false);
+const copySuccess = ref(false);
+const shareLinkInput = ref(null);
+
+// Computed value for the shareable link
+const shareableLink = computed(() => {
+  if (!isOnlineMode.value || !uniqueId.value) return '';
+  return `${window.location.origin}${window.location.pathname}?id=${uniqueId.value}`;
+});
+
+// Function to copy the shareable link to clipboard
+function copyShareLink() {
+  if (!shareLinkInput.value) return;
+  
+  shareLinkInput.value.select();
+  document.execCommand('copy');
+  
+  // Show success message briefly
+  copySuccess.value = true;
+  setTimeout(() => {
+    copySuccess.value = false;
+  }, 2000);
+}
+
+// Function to select online mode
+async function selectOnlineMode() {
+  isLoading.value = true;
+  try {
+    // Check if we have an ID in the URL
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get('id');
+    
+    if (urlId) {
+      // We have an ID, try to load data from Supabase
+      uniqueId.value = urlId;
+      await loadDataFromSupabase(urlId);
+    } else {
+      // Generate a new unique ID
+      uniqueId.value = uuidv4();
+      
+      // Save current state to Supabase with the new ID
+      await saveDataToSupabase();
+      
+      // Update URL with the new ID
+      window.history.pushState({}, '', `?id=${uniqueId.value}`);
+    }
+    
+    isOnlineMode.value = true;
+    showModeSelection.value = false;
+  } catch (error) {
+    console.error('Error setting up online mode:', error);
+    alert('There was an error connecting to the online service. Please try again or use offline mode.');
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// Function to select offline mode
+function selectOfflineMode() {
+  isOnlineMode.value = false;
+  showModeSelection.value = false;
+  
+  // Remove ID from URL if present
+  if (window.location.search) {
+    window.history.pushState({}, '', window.location.pathname);
+  }
+  
+  // Load from localStorage
+  loadStateFromLocalStorage();
+  loadUserPresets();
+}
+
+// Function to save data to Supabase
+async function saveDataToSupabase() {
+  if (!isOnlineMode.value || !uniqueId.value) return;
+  
+  const dataToSave = {
+    id: uniqueId.value,
+    selectedPreset: selectedPreset.value,
+    userPresets: userPresets.value,
+    appState: {
+      mrrGoal: mrrGoal.value,
+      initialVisitors: initialVisitors.value,
+      averageVisitorGrowthRate: averageVisitorGrowthRate.value,
+      visitorToInstallRate: visitorToInstallRate.value,
+      installToSubRate: installToSubRate.value,
+      selectedCurrency: selectedCurrency.value,
+      maxProjectionMonths: maxProjectionMonths.value,
+      showRateDetails: showRateDetails.value,
+      showPlanDistribution: showPlanDistribution.value,
+      currentMonth: currentMonth.value,
+      visitorGrowthFactor: visitorGrowthFactor.value,
+      churnRateFactor: churnRateFactor.value,
+      visitorToInstallFactor: visitorToInstallFactor.value,
+      installToSubFactor: installToSubFactor.value,
+      breakdownPlans: breakdownPlans.value,
+      selectedTheme: selectedTheme.value
+    },
+    updated_at: new Date()
+  };
+  
+  // Check if data exists with this ID
+  const { data: existingData } = await supabase
+    .from('saas_projections')
+    .select('id')
+    .eq('id', uniqueId.value)
+    .single();
+  
+  if (existingData) {
+    // Update existing record
+    const { error } = await supabase
+      .from('saas_projections')
+      .update(dataToSave)
+      .eq('id', uniqueId.value);
+    
+    if (error) throw error;
+  } else {
+    // Insert new record
+    const { error } = await supabase
+      .from('saas_projections')
+      .insert(dataToSave);
+    
+    if (error) throw error;
+  }
+}
+
+// Function to load data from Supabase
+async function loadDataFromSupabase(id) {
+  const { data, error } = await supabase
+    .from('saas_projections')
+    .select('*')
+    .eq('id', id)
+    .single();
+  
+  if (error) {
+    throw error;
+  }
+  
+  if (data) {
+    // Load user presets
+    if (data.userPresets) {
+      userPresets.value = data.userPresets;
+    }
+    
+    // Load selected preset
+    if (data.selectedPreset) {
+      selectedPreset.value = data.selectedPreset;
+    }
+    
+    // Load app state
+    if (data.appState) {
+      const state = data.appState;
+      
+      if (state.mrrGoal !== undefined) mrrGoal.value = state.mrrGoal;
+      if (state.initialVisitors !== undefined) initialVisitors.value = state.initialVisitors;
+      if (state.averageVisitorGrowthRate !== undefined) averageVisitorGrowthRate.value = state.averageVisitorGrowthRate;
+      if (state.visitorToInstallRate !== undefined) visitorToInstallRate.value = state.visitorToInstallRate;
+      if (state.installToSubRate !== undefined) installToSubRate.value = state.installToSubRate;
+      if (state.selectedCurrency !== undefined) selectedCurrency.value = state.selectedCurrency;
+      if (state.maxProjectionMonths !== undefined) maxProjectionMonths.value = state.maxProjectionMonths;
+      if (state.showRateDetails !== undefined) showRateDetails.value = state.showRateDetails;
+      if (state.showPlanDistribution !== undefined) showPlanDistribution.value = state.showPlanDistribution;
+      if (state.currentMonth !== undefined) currentMonth.value = state.currentMonth;
+      if (state.visitorGrowthFactor !== undefined) visitorGrowthFactor.value = state.visitorGrowthFactor;
+      if (state.churnRateFactor !== undefined) churnRateFactor.value = state.churnRateFactor;
+      if (state.visitorToInstallFactor !== undefined) visitorToInstallFactor.value = state.visitorToInstallFactor;
+      if (state.installToSubFactor !== undefined) installToSubFactor.value = state.installToSubFactor;
+      if (state.breakdownPlans && Array.isArray(state.breakdownPlans)) {
+        breakdownPlans.value = state.breakdownPlans;
+      }
+      if (state.selectedTheme !== undefined) selectedTheme.value = state.selectedTheme;
+      
+      // Apply theme immediately
+      applyTheme(selectedTheme.value);
+    }
+  }
+}
+
+// Function to check URL and decide whether to show selection screen
+function checkUrlForId() {
+  const params = new URLSearchParams(window.location.search);
+  const urlId = params.get('id');
+  
+  if (urlId) {
+    // We have an ID in the URL, automatically choose online mode
+    selectOnlineMode();
+  } else {
+    // No ID, show the selection screen
+    showModeSelection.value = true;
+  }
+}
+
+// Initialize on component mount
+onBeforeMount(() => {
+  checkUrlForId();
+});
+
+// Modified save function for multi-persistence support
+function saveState() {
+  if (isOnlineMode.value) {
+    saveDataToSupabase();
+  } else {
+    saveStateToLocalStorage();
+  }
+}
+
+// Function to apply theme
+function applyTheme(theme) {
+  if (theme === 'hacker') {
+    document.documentElement.classList.add('theme-hacker');
+    document.documentElement.classList.remove('light-mode');
+    document.documentElement.classList.remove('dark-mode');
+    document.documentElement.classList.remove('theme-terminal');
+    document.documentElement.classList.remove('theme-amber');
+    document.documentElement.classList.remove('theme-monokai');
+  } else if (theme === 'terminal') {
+    document.documentElement.classList.add('theme-terminal');
+    document.documentElement.classList.remove('light-mode');
+    document.documentElement.classList.remove('dark-mode');
+    document.documentElement.classList.remove('theme-hacker');
+    document.documentElement.classList.remove('theme-amber');
+    document.documentElement.classList.remove('theme-monokai');
+  } else if (theme === 'amber') {
+    document.documentElement.classList.add('theme-amber');
+    document.documentElement.classList.remove('light-mode');
+    document.documentElement.classList.remove('dark-mode');
+    document.documentElement.classList.remove('theme-hacker');
+    document.documentElement.classList.remove('theme-terminal');
+    document.documentElement.classList.remove('theme-monokai');
+  } else if (theme === 'monokai') {
+    document.documentElement.classList.add('theme-monokai');
+    document.documentElement.classList.remove('light-mode');
+    document.documentElement.classList.remove('dark-mode');
+    document.documentElement.classList.remove('theme-hacker');
+    document.documentElement.classList.remove('theme-terminal');
+    document.documentElement.classList.remove('theme-amber');
+  } else {
+    document.documentElement.classList.remove('theme-hacker');
+    document.documentElement.classList.remove('theme-terminal');
+    document.documentElement.classList.remove('theme-amber');
+    document.documentElement.classList.remove('theme-monokai');
+    document.documentElement.classList.add('light-mode');
+    document.documentElement.classList.remove('dark-mode');
+  }
+  
+  localStorage.setItem('selectedTheme', theme);
+}
 
 // Computed to check if current preset is a user preset
 const isUserPreset = computed(() => {
@@ -669,8 +962,8 @@ function applyPreset() {
     breakdownPlans.value = JSON.parse(JSON.stringify(preset.plans)); // Deep clone to avoid reference issues
   }
   
-  // Save changes to localStorage
-  saveStateToLocalStorage();
+  // Save changes using the unified save function
+  saveState();
 }
 
 // Get access to the global instance
@@ -684,50 +977,11 @@ watch(() => selectedTheme.value, (newTheme) => {
     app.appContext.config.globalProperties.selectedTheme = newTheme
   }
   
-  // Apply theme class to html element
-  if (newTheme === 'hacker') {
-    document.documentElement.classList.add('theme-hacker')
-    document.documentElement.classList.remove('light-mode')
-    document.documentElement.classList.remove('dark-mode')
-    document.documentElement.classList.remove('theme-terminal')
-    document.documentElement.classList.remove('theme-amber')
-    document.documentElement.classList.remove('theme-monokai')
-  } else if (newTheme === 'terminal') {
-    document.documentElement.classList.add('theme-terminal')
-    document.documentElement.classList.remove('light-mode')
-    document.documentElement.classList.remove('dark-mode')
-    document.documentElement.classList.remove('theme-hacker')
-    document.documentElement.classList.remove('theme-amber')
-    document.documentElement.classList.remove('theme-monokai')
-  } else if (newTheme === 'amber') {
-    document.documentElement.classList.add('theme-amber')
-    document.documentElement.classList.remove('light-mode')
-    document.documentElement.classList.remove('dark-mode')
-    document.documentElement.classList.remove('theme-hacker')
-    document.documentElement.classList.remove('theme-terminal')
-    document.documentElement.classList.remove('theme-monokai')
-  } else if (newTheme === 'monokai') {
-    document.documentElement.classList.add('theme-monokai')
-    document.documentElement.classList.remove('light-mode')
-    document.documentElement.classList.remove('dark-mode')
-    document.documentElement.classList.remove('theme-hacker')
-    document.documentElement.classList.remove('theme-terminal')
-    document.documentElement.classList.remove('theme-amber')
-  } else {
-    // For default theme, use light mode
-    document.documentElement.classList.remove('theme-hacker')
-    document.documentElement.classList.remove('theme-terminal')
-    document.documentElement.classList.remove('theme-amber')
-    document.documentElement.classList.remove('theme-monokai')
-    document.documentElement.classList.add('light-mode')
-    document.documentElement.classList.remove('dark-mode')
-  }
+  // Apply theme
+  applyTheme(newTheme);
   
-  // Save theme selection to localStorage
-  localStorage.setItem('selectedTheme', newTheme);
-  
-  // Also save to our main state storage
-  saveStateToLocalStorage();
+  // Save state
+  saveState();
 });
 
 // Watch for changes in main inputs and save to localStorage
@@ -750,7 +1004,8 @@ watch(
     breakdownPlans
   ],
   () => {
-    saveStateToLocalStorage();
+    // Use the unified save function instead of directly calling localStorage
+    saveState();
     
     // Automatically update the current preset if it's a user preset
     if (isUserPreset.value) {
@@ -771,8 +1026,12 @@ watch(
           plans: JSON.parse(JSON.stringify(breakdownPlans.value)) // Deep clone
         };
         
-        // Save to localStorage
-        saveUserPresets();
+        // Save to persistence based on mode
+        if (isOnlineMode.value) {
+          saveDataToSupabase(); 
+        } else {
+          saveUserPresets();
+        }
       }
     }
   },
@@ -787,51 +1046,26 @@ function addPlan() {
     price: 0,
     churnRate: 2.0,
   });
-  saveStateToLocalStorage();
+  saveState();
 }
 
 function removePlan(idx) {
   breakdownPlans.value.splice(idx, 1);
-  saveStateToLocalStorage();
+  saveState();
 }
 
 // Load all saved state on component mount
 onMounted(() => {
-  // Load theme from localStorage (this was already implemented)
-  const savedTheme = localStorage.getItem('selectedTheme')
-  if (savedTheme) {
-    selectedTheme.value = savedTheme
-  } else {
-    // If no saved theme, default to hacker theme
-    selectedTheme.value = 'hacker'
-    localStorage.setItem('selectedTheme', 'hacker')
-  }
+  // Theme selection is now handled in our applyTheme function
+  // URL checking is handled in checkUrlForId (called in onBeforeMount)
   
-  // Apply the theme class on component mount
-  if (selectedTheme.value === 'hacker') {
-    document.documentElement.classList.add('theme-hacker')
-  } else if (selectedTheme.value === 'terminal') {
-    document.documentElement.classList.add('theme-terminal')
-  } else if (selectedTheme.value === 'amber') {
-    document.documentElement.classList.add('theme-amber')
-  } else if (selectedTheme.value === 'monokai') {
-    document.documentElement.classList.add('theme-monokai')
-  }
+  // Note: We don't need to load data here anymore as it's handled
+  // by the selectOnlineMode/selectOfflineMode functions
   
-  // First load user presets - must be done before loading state
-  // to properly validate preset selection
-  loadUserPresets();
-  
-  // Try to load state from localStorage
-  const savedState = localStorage.getItem('saasProjectorState');
-  
-  if (savedState) {
-    // If we have saved state, load it (includes preset selection)
-    loadStateFromLocalStorage();
-  } else {
-    // Apply default Levelsio preset if no saved state
-    selectedPreset.value = 'levelsio';
-    applyPreset();
+  // Apply default theme if we don't have a selection yet
+  if (!selectedTheme.value) {
+    selectedTheme.value = 'hacker';
+    applyTheme('hacker');
   }
 });
 
@@ -1295,6 +1529,230 @@ const loadStateFromLocalStorage = () => {
   transition: all 0.3s ease;
   background-color: var(--bg-color, #fff);
   color: var(--text-color, #333);
+}
+
+/* Storage Mode Overlay */
+.storage-mode-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
+}
+
+.storage-mode-dialog {
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  width: 80%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.storage-mode-dialog h2 {
+  margin-top: 0;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.storage-mode-dialog p {
+  margin-bottom: 25px;
+  color: #555;
+}
+
+.storage-mode-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px solid #ddd;
+  padding: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: white;
+  flex: 1;
+  min-width: 180px;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.mode-btn .icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.mode-btn .label {
+  font-weight: bold;
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+
+.mode-btn .description {
+  font-size: 12px;
+  color: #777;
+}
+
+.online-btn {
+  border-color: #4285f4;
+}
+
+.online-btn:hover {
+  background-color: #f0f7ff;
+}
+
+.offline-btn {
+  border-color: #34a853;
+}
+
+.offline-btn:hover {
+  background-color: #f0fff7;
+}
+
+.blurred {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Theme-specific overlay styles */
+.theme-hacker .storage-mode-dialog {
+  background-color: #000;
+  border: 1px solid #0f0;
+  color: #0f0;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+}
+
+.theme-hacker .storage-mode-dialog p {
+  color: #0f0;
+  opacity: 0.8;
+}
+
+.theme-hacker .mode-btn {
+  background-color: #000;
+  color: #0f0;
+  border-color: #0f0;
+}
+
+.theme-hacker .mode-btn .description {
+  color: #0f0;
+  opacity: 0.7;
+}
+
+.theme-hacker .online-btn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.theme-hacker .offline-btn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.theme-terminal .storage-mode-dialog {
+  background-color: #000;
+  border: 1px solid #a8a8a8;
+  color: #a8a8a8;
+  box-shadow: 0 0 20px rgba(168, 168, 168, 0.2);
+}
+
+.theme-terminal .storage-mode-dialog p {
+  color: #a8a8a8;
+  opacity: 0.8;
+}
+
+.theme-terminal .mode-btn {
+  background-color: #000;
+  color: #a8a8a8;
+  border-color: #a8a8a8;
+}
+
+.theme-terminal .mode-btn .description {
+  color: #a8a8a8;
+  opacity: 0.7;
+}
+
+.theme-terminal .online-btn:hover,
+.theme-terminal .offline-btn:hover {
+  background-color: rgba(168, 168, 168, 0.1);
+}
+
+.theme-amber .storage-mode-dialog {
+  background-color: #000;
+  border: 1px solid #ffb000;
+  color: #ffb000;
+  box-shadow: 0 0 20px rgba(255, 176, 0, 0.2);
+}
+
+.theme-amber .storage-mode-dialog p {
+  color: #ffb000;
+  opacity: 0.8;
+}
+
+.theme-amber .mode-btn {
+  background-color: #000;
+  color: #ffb000;
+  border-color: #ffb000;
+}
+
+.theme-amber .mode-btn .description {
+  color: #ffb000;
+  opacity: 0.7;
+}
+
+.theme-amber .online-btn:hover,
+.theme-amber .offline-btn:hover {
+  background-color: rgba(255, 176, 0, 0.1);
+}
+
+.theme-monokai .storage-mode-dialog {
+  background-color: #272822;
+  border: 1px solid #49483e;
+  color: #f8f8f2;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.theme-monokai .storage-mode-dialog p {
+  color: #f8f8f2;
+  opacity: 0.8;
+}
+
+.theme-monokai .mode-btn {
+  background-color: #272822;
+  color: #f8f8f2;
+  border-color: #49483e;
+}
+
+.theme-monokai .mode-btn .description {
+  color: #f8f8f2;
+  opacity: 0.7;
+}
+
+.theme-monokai .online-btn {
+  border-color: #66d9ef;
+}
+
+.theme-monokai .offline-btn {
+  border-color: #a6e22e;
+}
+
+.theme-monokai .online-btn:hover,
+.theme-monokai .offline-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 /* Title spacing to prevent cutting off */
@@ -2036,4 +2494,241 @@ input {
   background-color: rgba(255, 255, 255, 0.05);
   color: #a6e22e;
 }
-</style> 
+
+/* Add a sharing indicator to the top right of the app when in online mode */
+.online-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.online-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.online-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #4caf50;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+.share-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-grow: 1;
+}
+
+.share-link input {
+  flex-grow: 1;
+  min-width: 200px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.copy-btn {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #333;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.copy-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.copy-btn:active {
+  transform: scale(0.95);
+}
+
+/* Theme-specific online indicator styles */
+.theme-hacker .online-indicator {
+  background-color: #000;
+  border: 1px solid #0f0;
+}
+
+.theme-hacker .online-dot {
+  background-color: #0f0;
+}
+
+.theme-hacker .share-link input {
+  background-color: #000;
+  color: #0f0;
+  border-color: #0f0;
+}
+
+.theme-hacker .copy-btn {
+  background-color: #001800;
+  color: #0f0;
+  border-color: #0f0;
+}
+
+.theme-hacker .copy-btn:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.theme-terminal .online-indicator {
+  background-color: #000;
+  border: 1px solid #a8a8a8;
+}
+
+.theme-terminal .online-dot {
+  background-color: #a8a8a8;
+}
+
+.theme-terminal .share-link input {
+  background-color: #000;
+  color: #a8a8a8;
+  border-color: #a8a8a8;
+}
+
+.theme-terminal .copy-btn {
+  background-color: #181818;
+  color: #a8a8a8;
+  border-color: #a8a8a8;
+}
+
+.theme-terminal .copy-btn:hover {
+  background-color: rgba(168, 168, 168, 0.1);
+}
+
+.theme-amber .online-indicator {
+  background-color: #000;
+  border: 1px solid #ffb000;
+}
+
+.theme-amber .online-dot {
+  background-color: #ffb000;
+}
+
+.theme-amber .share-link input {
+  background-color: #000;
+  color: #ffb000;
+  border-color: #ffb000;
+}
+
+.theme-amber .copy-btn {
+  background-color: #1a1000;
+  color: #ffb000;
+  border-color: #ffb000;
+}
+
+.theme-amber .copy-btn:hover {
+  background-color: rgba(255, 176, 0, 0.1);
+}
+
+.theme-monokai .online-indicator {
+  background-color: #272822;
+  border: 1px solid #49483e;
+}
+
+.theme-monokai .online-dot {
+  background-color: #66d9ef;
+}
+
+.theme-monokai .share-link input {
+  background-color: #272822;
+  color: #f8f8f2;
+  border-color: #49483e;
+}
+
+.theme-monokai .copy-btn {
+  background-color: #3e3d32;
+  color: #f8f8f2;
+  border-color: #49483e;
+}
+
+.theme-monokai .copy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+/* Theme-specific pulse animations */
+.theme-hacker .online-dot {
+  animation: pulse-hacker 1.5s infinite;
+}
+
+@keyframes pulse-hacker {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(0, 255, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 0, 0);
+  }
+}
+
+.theme-terminal .online-dot {
+  animation: pulse-terminal 1.5s infinite;
+}
+
+@keyframes pulse-terminal {
+  0% {
+    box-shadow: 0 0 0 0 rgba(168, 168, 168, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(168, 168, 168, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 168, 168, 0);
+  }
+}
+
+.theme-amber .online-dot {
+  animation: pulse-amber 1.5s infinite;
+}
+
+@keyframes pulse-amber {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 176, 0, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 176, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 176, 0, 0);
+  }
+}
+</style>
