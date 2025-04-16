@@ -56,6 +56,12 @@ Import and use this component in your main App.vue or similar entry point.
                 <input type="number" v-model.number="maxProjectionMonths" min="1" max="60" title="Number of months to include in the projection" />
               </td>
             </tr>
+            <tr>
+              <td title="Median churn rate calculated from all plan churn rates">Median Churn Rate (%)</td>
+              <td>
+                <input type="number" :value="medianChurnRate" disabled title="Median churn rate calculated from all plan-specific churn rates" />
+              </td>
+            </tr>
           </tbody>
         </table>
 
@@ -118,8 +124,11 @@ Import and use this component in your main App.vue or similar entry point.
             </tr>
           </tbody>
         </table>
+      </div>
 
-        <!-- Plans Table - Changed MRR to Price -->
+      <!-- Right Column: Projection Table -->
+      <div class="right-column">
+        <!-- Plans Table - Moved from left column to top of right column -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <h3 style="margin: 0;">Plan Information</h3>
           <a href="#" @click.prevent="addPlan" style="text-decoration: underline; color: blue; font-size: 14px;">+ Add Plan</a>
@@ -130,6 +139,7 @@ Import and use this component in your main App.vue or similar entry point.
               <th>Plan</th>
               <th>Customers</th>
               <th>Price ({{ selectedCurrency }})</th>
+              <th>Churn Rate (%)</th>
               <th>Remove</th>
             </tr>
           </thead>
@@ -156,15 +166,29 @@ Import and use this component in your main App.vue or similar entry point.
                 />
               </td>
               <td>
+                <!-- Churn Rate -->
+                <input 
+                  type="number" 
+                  v-model.number="plan.churnRate"
+                  step="0.01"
+                  title="Monthly churn rate percentage for this plan" 
+                />
+              </td>
+              <td>
                 <a href="#" @click.prevent="removePlan(idx)" style="text-decoration: underline; color: blue; font-size: 12px;">remove</a>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <!-- Plan Distribution Table -->
-        <h3>Plan Distribution</h3>
-        <table border="1" cellpadding="5" cellspacing="0">
+        <!-- Plan Distribution Table - Moved from left column -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="margin: 0;">Plan Distribution</h3>
+          <label style="font-weight: normal; font-size: 14px;">
+            <input type="checkbox" v-model="showPlanDistribution" /> Show distribution details
+          </label>
+        </div>
+        <table v-if="showPlanDistribution" border="1" cellpadding="5" cellspacing="0">
           <thead>
             <tr>
               <th>Plan</th>
@@ -180,10 +204,7 @@ Import and use this component in your main App.vue or similar entry point.
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- Right Column: Projection Table -->
-      <div class="right-column">
+        
         <!-- Projection Table with title showing start month -->
         <h3>Projection Analysis</h3>
         <table border="1" cellpadding="5" cellspacing="0">
@@ -303,6 +324,7 @@ const installToSubRate = ref(24);
 const selectedCurrency = ref('$'); // Default currency is USD
 const maxProjectionMonths = ref(12); // Default projection period
 const showRateDetails = ref(false); // Toggle for showing rate details in projection table
+const showPlanDistribution = ref(false); // Toggle for showing plan distribution table
 
 // Growth factors for rates (1.0 means no change month to month)
 const visitorGrowthFactor = ref(1.0);
@@ -320,21 +342,25 @@ const breakdownPlans = ref([
     name: 'Starter',
     customers: 30,
     price: 49,
+    churnRate: 2.5,
   },
   {
     name: 'Essentials',
     customers: 7,
     price: 99,
+    churnRate: 1.8,
   },
   {
     name: 'Scale',
     customers: 5,
     price: 199,
+    churnRate: 1.5,
   },
   {
     name: 'Prime',
     customers: 2,
     price: 299,
+    churnRate: 1.0,
   },
 ]);
 
@@ -344,6 +370,7 @@ function addPlan() {
     name: 'New Plan',
     customers: 0,
     price: 0,
+    churnRate: 2.0,
   });
 }
 
@@ -383,6 +410,27 @@ const predictionMonths = computed(() => {
 // Calculate visitor-to-sub conversion rate based on the other two rates
 const calculatedVisitorToSubRate = computed(() => {
   return ((visitorToInstallRate.value * installToSubRate.value) / 100).toFixed(2);
+});
+
+// Calculate median churn rate from all plans
+const medianChurnRate = computed(() => {
+  const rates = breakdownPlans.value.map(plan => plan.churnRate).filter(rate => rate !== undefined);
+  
+  if (rates.length === 0) return 0;
+  
+  // Sort the rates
+  rates.sort((a, b) => a - b);
+  
+  // Find the median
+  const middle = Math.floor(rates.length / 2);
+  
+  if (rates.length % 2 === 0) {
+    // Even number of rates, average the two middle values
+    return ((rates[middle - 1] + rates[middle]) / 2).toFixed(2);
+  } else {
+    // Odd number of rates, return the middle value
+    return rates[middle].toFixed(2);
+  }
 });
 
 // Helper function to get growth rate for a specific month
@@ -489,7 +537,7 @@ function getVisitorToSubRateForMonth(monthIndex) {
 }
 
 function getChurnRateForMonth(monthIndex) {
-  let rate = churnRate.value;
+  let rate = parseFloat(medianChurnRate.value);
   for (let i = 0; i < monthIndex; i++) {
     rate *= churnRateFactor.value;
   }
