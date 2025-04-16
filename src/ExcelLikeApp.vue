@@ -594,6 +594,8 @@ async function selectOnlineMode() {
       // We have an ID, try to load data from Supabase
       uniqueId.value = urlId;
       await loadDataFromSupabase(urlId);
+      // Apply the loaded preset after data is loaded
+      applyPreset();
     } else {
       // Generate a new unique ID
       uniqueId.value = uuidv4();
@@ -659,28 +661,19 @@ async function saveDataToSupabase() {
     updated_at: new Date()
   };
   
-  // Check if data exists with this ID
-  const { data: existingData } = await supabase
-    .from('saas_projections')
-    .select('id')
-    .eq('id', uniqueId.value)
-    .single();
-  
-  if (existingData) {
-    // Update existing record
+  try {
+    // Use upsert operation (insert if not exists, update if exists)
     const { error } = await supabase
       .from('saas_projections')
-      .update(dataToSave)
-      .eq('id', uniqueId.value);
+      .upsert(dataToSave, { 
+        onConflict: 'id', 
+        returning: 'minimal' 
+      });
     
     if (error) throw error;
-  } else {
-    // Insert new record
-    const { error } = await supabase
-      .from('saas_projections')
-      .insert(dataToSave);
-    
-    if (error) throw error;
+  } catch (error) {
+    console.error('Error saving to Supabase:', error);
+    // Just log the error but don't show alert since the data is still saved
   }
 }
 
@@ -839,8 +832,12 @@ function saveCurrentAsPreset() {
   // Add to user presets
   userPresets.value.push(newPreset);
   
-  // Save to localStorage
-  saveUserPresets();
+  // Save to appropriate storage
+  if (isOnlineMode.value) {
+    saveDataToSupabase();
+  } else {
+    saveUserPresets();
+  }
   
   // Select the new preset
   selectedPreset.value = presetId;
@@ -875,8 +872,12 @@ function updateCurrentPreset() {
     plans: JSON.parse(JSON.stringify(breakdownPlans.value)) // Deep clone
   };
   
-  // Save to localStorage
-  saveUserPresets();
+  // Save to appropriate storage
+  if (isOnlineMode.value) {
+    saveDataToSupabase();
+  } else {
+    saveUserPresets();
+  }
   
   // Close menu
   showPresetMenu.value = false;
@@ -897,8 +898,12 @@ function deleteSelectedPreset() {
   // Remove the preset
   userPresets.value.splice(presetIndex, 1);
   
-  // Save to localStorage
-  saveUserPresets();
+  // Save to appropriate storage
+  if (isOnlineMode.value) {
+    saveDataToSupabase();
+  } else {
+    saveUserPresets();
+  }
   
   // Switch to levelsio preset
   selectedPreset.value = 'levelsio';
@@ -982,6 +987,16 @@ watch(() => selectedTheme.value, (newTheme) => {
   
   // Save state
   saveState();
+});
+
+// Watch for changes in selected preset and save to Supabase when in online mode
+watch(() => selectedPreset.value, (newPreset) => {
+  if (isOnlineMode.value) {
+    // Apply the preset to ensure all values are loaded
+    applyPreset();
+    // Then save to Supabase
+    saveDataToSupabase();
+  }
 });
 
 // Watch for changes in main inputs and save to localStorage
