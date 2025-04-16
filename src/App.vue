@@ -5,7 +5,7 @@ import ExcelLikeApp from './ExcelLikeApp.vue'
 <template>
   <div class="app">
     <header>
-      <h1>Pricing Dashboard</h1>
+      <h1>Saas projection</h1>
     </header>
     <main>
       <ExcelLikeApp />
