@@ -304,7 +304,7 @@ Import and use this component in your main App.vue or similar entry point.
                 <th title="Projected website visitors per month with applied growth rate">Visitors</th>
                 <th v-if="showRateDetails" title="Growth rate applied for this month">Growth%</th>
                 <th title="New subscribers gained based on conversion rate applied to monthly visitors">Subs+</th>
-                <th v-if="showRateDetails" title="Conversion rate applied for this month">Conv%</th>
+                <th v-if="showRateDetails" title="Conversion rate applied for this month (hover over values below to see detailed breakdown of Visitor-to-Install and Install-to-Sub rates)">Conv%</th>
                 <th title="Subscribers lost based on churn rate applied to previous month's customer base">Churned</th>
                 <th v-if="showRateDetails" title="Churn rate applied for this month">Churn%</th>
                 <th title="Total customers at end of month: previous month + new subscribers - churn">Net Cust.</th>
@@ -320,10 +320,17 @@ Import and use this component in your main App.vue or similar entry point.
                 <td v-if="showRateDetails">
                   {{ getMonthlyGrowthRate(month.projectionIndex).toFixed(2) }}%
                 </td>
-                <td :title="getPlanDistributionTooltip(month.projectionIndex)">
+                <td :title="`New subscribers: ${getSubscribersForMonth(month.projectionIndex)}
+Conversion rate breakdown:
+Visitor-to-Install: ${getVisitorToInstallRateForMonth(month.projectionIndex).toFixed(2)}%
+Install-to-Sub: ${getInstallToSubRateForMonth(month.projectionIndex).toFixed(2)}%
+Combined: ${getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2)}%`">
                   {{ getSubscribersForMonth(month.projectionIndex) }}
                 </td>
-                <td v-if="showRateDetails">
+                <td v-if="showRateDetails" :title="`Breakdown:
+Visitor-to-Install: ${getVisitorToInstallRateForMonth(month.projectionIndex).toFixed(2)}%
+Install-to-Sub: ${getInstallToSubRateForMonth(month.projectionIndex).toFixed(2)}%
+Combined: (${getVisitorToInstallRateForMonth(month.projectionIndex).toFixed(2)}% × ${getInstallToSubRateForMonth(month.projectionIndex).toFixed(2)}%) ÷ 100 = ${getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2)}%`">
                   {{ getVisitorToSubRateForMonth(month.projectionIndex).toFixed(2) }}%
                 </td>
                 <td :title="`Calculated as: Previous month customers × ${getChurnRateForMonth(month.projectionIndex).toFixed(2)}% churn rate`">
