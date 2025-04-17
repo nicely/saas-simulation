@@ -764,45 +764,44 @@ function saveState() {
   }
 }
 
-// Function to apply theme
+// Validate themes against allowed values
+const VALID_THEMES = ['default', 'hacker', 'terminal', 'amber', 'monokai'];
+
+// Function to clear all theme classes
+function resetAllThemeClasses() {
+  document.documentElement.classList.remove('theme-hacker');
+  document.documentElement.classList.remove('theme-terminal');
+  document.documentElement.classList.remove('theme-amber');
+  document.documentElement.classList.remove('theme-monokai');
+  document.documentElement.classList.remove('light-mode');
+  document.documentElement.classList.remove('dark-mode');
+}
+
+// Function to apply theme with validation
 function applyTheme(theme) {
-  if (theme === 'hacker') {
-    document.documentElement.classList.add('theme-hacker');
-    document.documentElement.classList.remove('light-mode');
-    document.documentElement.classList.remove('dark-mode');
-    document.documentElement.classList.remove('theme-terminal');
-    document.documentElement.classList.remove('theme-amber');
-    document.documentElement.classList.remove('theme-monokai');
-  } else if (theme === 'terminal') {
-    document.documentElement.classList.add('theme-terminal');
-    document.documentElement.classList.remove('light-mode');
-    document.documentElement.classList.remove('dark-mode');
-    document.documentElement.classList.remove('theme-hacker');
-    document.documentElement.classList.remove('theme-amber');
-    document.documentElement.classList.remove('theme-monokai');
-  } else if (theme === 'amber') {
-    document.documentElement.classList.add('theme-amber');
-    document.documentElement.classList.remove('light-mode');
-    document.documentElement.classList.remove('dark-mode');
-    document.documentElement.classList.remove('theme-hacker');
-    document.documentElement.classList.remove('theme-terminal');
-    document.documentElement.classList.remove('theme-monokai');
-  } else if (theme === 'monokai') {
-    document.documentElement.classList.add('theme-monokai');
-    document.documentElement.classList.remove('light-mode');
-    document.documentElement.classList.remove('dark-mode');
-    document.documentElement.classList.remove('theme-hacker');
-    document.documentElement.classList.remove('theme-terminal');
-    document.documentElement.classList.remove('theme-amber');
-  } else {
-    document.documentElement.classList.remove('theme-hacker');
-    document.documentElement.classList.remove('theme-terminal');
-    document.documentElement.classList.remove('theme-amber');
-    document.documentElement.classList.remove('theme-monokai');
-    document.documentElement.classList.add('light-mode');
-    document.documentElement.classList.remove('dark-mode');
+  // Validate the theme
+  if (!VALID_THEMES.includes(theme)) {
+    console.warn(`Invalid theme: ${theme}. Falling back to monokai.`);
+    theme = 'monokai';
   }
   
+  // Reset all theme classes first to prevent mixed themes
+  resetAllThemeClasses();
+  
+  // Apply the appropriate theme class
+  if (theme === 'hacker') {
+    document.documentElement.classList.add('theme-hacker');
+  } else if (theme === 'terminal') {
+    document.documentElement.classList.add('theme-terminal');
+  } else if (theme === 'amber') {
+    document.documentElement.classList.add('theme-amber');
+  } else if (theme === 'monokai') {
+    document.documentElement.classList.add('theme-monokai');
+  } else if (theme === 'default') {
+    document.documentElement.classList.add('light-mode');
+  }
+  
+  // Save the validated theme
   localStorage.setItem('selectedTheme', theme);
 }
 
