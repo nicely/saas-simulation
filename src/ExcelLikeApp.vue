@@ -314,11 +314,11 @@ Import and use this component in your main App.vue or similar entry point.
             <tbody>
               <tr v-for="(month, mIdx) in predictionMonths" :key="mIdx">
                 <td>{{ month.name }}</td>
-                <td :title="`Calculated with month ${mIdx+1} growth rate: ${(averageVisitorGrowthRate * Math.pow(visitorGrowthFactor, mIdx)).toFixed(2)}%`">
+                <td :title="`Calculated with month ${mIdx+1} growth rate: ${((parseFloat(averageVisitorGrowthRate.value) || 0) * Math.pow(visitorGrowthFactor.value, mIdx)).toFixed(2)}%`">
                   {{ getVisitorsForMonth(month.projectionIndex) }}
                 </td>
                 <td v-if="showRateDetails">
-                  {{ getMonthlyGrowthRate(month.projectionIndex).toFixed(2) }}%
+                  {{ typeof getMonthlyGrowthRate(month.projectionIndex) === 'number' ? getMonthlyGrowthRate(month.projectionIndex).toFixed(2) : '0.00' }}%
                 </td>
                 <td :title="`New subscribers: ${getSubscribersForMonth(month.projectionIndex)}
 Conversion rate breakdown:
@@ -1162,7 +1162,7 @@ const medianChurnRate = computed(() => {
 // Helper function to get growth rate for a specific month
 function getMonthlyGrowthRate(monthIndex) {
   // Base rate from initial setting
-  const baseRate = averageVisitorGrowthRate.value;
+  const baseRate = parseFloat(averageVisitorGrowthRate.value) || 0;
   
   // First month (index 0) always uses the base rate
   if (monthIndex === 0) {
